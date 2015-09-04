@@ -65,7 +65,7 @@ Directory.prototype.addChild = function (name) {
 
 Directory.prototype.open = function(){
     if (this.isOpen)
-        return this.close();
+        return;
     this.isOpen = true;
     this.elem.addClass ('open');
     this.directoryImg.setAttribute ('src', 'controller/directory_open.png');
@@ -115,7 +115,7 @@ Directory.prototype.open = function(){
 
 Directory.prototype.close = function(){
     if (!this.isOpen)
-        return this.open();
+        return;
     this.isOpen = false;
     this.elem.dropClass ('open');
     this.directoryImg.setAttribute ('src', 'controller/directory.png');

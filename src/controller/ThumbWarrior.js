@@ -83,18 +83,35 @@ module.exports.getThumb = function (dirpath, filename, callback) {
         },
     ], function(){
         if (thumbPath)
-            console.log ('found', thumbPath);
-        else
-            console.log ('creating');
-        if (thumbPath)
             return callback (undefined, 'file://'+thumbPath, pad, stats);
+        function writeNewThumb (err, image) {
+            if (err)
+                return callback (err);
+
+            var width = image.width();
+            var height = image.height();
+            var finalHeight = image.height();
+
+            // write the thumbnail data to disc and update the thumbnail database
+            image.writeFile (newThumbPath, 'png', function (err) {
+                if (err)
+                    return callback (err);
+                if (finalHeight < THUMB_SIZE)
+                    pad = Math.floor ((THUMB_SIZE - finalHeight) / 2);
+                db.transaction (function (tx) {
+                    tx.executeSql (
+                        'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type) VALUES (?, ?, ?, ?, ?)',
+                        [ dirpath, filename, newThumbPath, pad, imageType ]
+                    );
+                });
+                callback (undefined, 'file://' + newThumbPath, pad, {});
+            });
+        }
         fs.readFile (filepath, function (err, buf) {
-            console.log ('read', err);
             if (err)
                 return callback (err);
             imageType = getType (buf);
             lwip.open (buf, imageType.ext, function (err, image) {
-                console.log ('image');
                 if (err)
                     return callback (err);
                 srcImage = image;
@@ -106,11 +123,7 @@ module.exports.getThumb = function (dirpath, filename, callback) {
                     return callback();
 
                 if (width == height)
-                    return srcImage.resize (150, 150, function (err, image) {
-                        if (err) return callback (err);
-                        srcImage = image;
-                        callback();
-                    });
+                    return srcImage.resize (150, 150, writeNewThumb);
 
                 // var top, right, bottom, left, scale;
                 var finalWidth, finalHeight;
@@ -132,41 +145,7 @@ module.exports.getThumb = function (dirpath, filename, callback) {
                  .crop (newWidth, newHeight)
                  .scale (scale)
                  ;
-                batch.exec (function (err, image) {
-                    if (err)
-                        return callback (err);
-
-                    var width = image.width();
-                    var height = image.height();
-                    srcImage = image;
-
-                    // write the thumbnail data to disc and update the thumbnail database
-                    console.log ('writing');
-                    async.parallel ([
-                        function (callback) {
-                            srcImage.writeFile (newThumbPath, 'png', callback);
-                        },
-                        function (callback) {
-                            if (finalHeight < THUMB_SIZE)
-                                var pad = Math.floor ((THUMB_SIZE - finalHeight) / 2);
-                            db.transaction (function (tx) {
-                                tx.executeSql (
-                                    'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type) VALUES (?, ?, ?, ?, ?)',
-                                    [ dirpath, filename, newThumbPath, pad, imageType ]
-                                );
-                            });
-                            callback();
-                        }
-                    ], function (err) {
-                        if (err) { // roll back any database changes
-
-                            return callback (err);
-                        }
-                        console.log ('done');
-                        var pad, finalHeight = srcImage.height();
-                        callback (undefined, 'file://' + newThumbPath, pad, {});
-                    });
-                });
+                batch.exec (writeNewThumb);
             });
         });
     });

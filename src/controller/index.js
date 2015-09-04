@@ -56,8 +56,6 @@ function Controller (winnder, hostElem) {
                 'USERPROFILE'
               : 'HOME'
         ];
-    else
-        console.log ('using existing path');
 
     // create visualizer
     var visualizer = this.visualizer = new Visualizer (this);
@@ -172,7 +170,6 @@ Controller.prototype.go = function (direction) {
         return;
 
     var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
-    console.log (this.thumbsElem.clientWidth, this.selectedImage.clientWidth, rowWidth);
     switch (direction) {
         case 37:
             // go left
