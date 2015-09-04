@@ -20,8 +20,8 @@ function Visualizer (controller) {
 
     // launch the Visualizer Window
     this.window = gui.Window.open ('./controller/Visualizer/index.html', {
-        // toolbar: false,
-        // frame:   false
+        toolbar: false,
+        frame:   false
     });
 
     var self = this;
