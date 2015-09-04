@@ -1,0 +1,155 @@
+
+html {
+    height: 100%;
+    font-family: verdana;
+}
+
+body {
+    height: 100%;
+    margin: 0;
+}
+
+#Splash {
+    position: fixed;
+    background-color: #fff;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-image: url('dickbutt.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+#Splash.hidden {
+    display: none;
+}
+
+#Info {
+    opacity: 0;
+    transition: opacity 0.5s ease-in;
+    text-align: center;
+    font-family: tahoma;
+    color: #E600DD;
+    position: fixed;
+    text-shadow: -0.1em 0.1em 0 #000000;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.44));
+}
+
+#Info h1 {
+    font-size: 600%;
+    margin: 0;
+}
+
+#Info h2 {
+    font-size: 300%;
+    margin: -0.5em 0 0;
+}
+
+#Info img {
+    height: 0.5em;
+    margin-left: 0.11em;
+    vertical-align: top;
+}
+
+#Info.revealed {
+    opacity: 1;
+}
+
+#Lister {
+    height: 100%;
+}
+
+#Tree {
+    width: 15em;
+    overflow-y: scroll;
+    overflow-x: auto;
+    resize: horizontal;
+    padding: 0 0.2em;
+    float: left;
+    height: 100%;
+}
+
+.directory {
+    color: #6C6C6C;
+    cursor: pointer;
+}
+
+.directory .title {
+    display: inline-block;
+}
+
+.directory.open {
+    color: #E600DD;
+}
+
+.directory img {
+    height: 1.4em;
+    margin-right: 0.2em;
+    vertical-align: text-bottom;
+}
+
+.directory .children {
+    padding: 0.1em 0 0 0.75em;
+    border-left: 1px solid #BEBEBE;
+    display: none;
+}
+
+.directory.open > .children {
+    display: block;
+}
+
+.directory.open > .children:empty {
+    padding: 0.5em 0 0.5em 1em;
+}
+
+.directory.open > .children:empty:before {
+    content: "empty";
+    color: #A9A8A8;
+    font-style: italic;
+}
+
+.directory.selected > .title {
+    color: #fff;
+    background-color: #E600DD;
+}
+
+.thumbs {
+    height: 100%;
+    overflow-y: scroll;
+    line-height: 0;
+}
+
+.thumbs .thumb {
+    display: inline-block;
+    width: 150px;
+    height: 150px;
+    text-align: center;
+    vertical-align: top;
+    padding: 1px;
+}
+
+.thumbs .bogus {
+    display: none;
+}
+
+.thumb:empty {
+    box-shadow: inset 0 0 0.5em #FFB8FC;
+}
+
+.thumb img {
+    cursor: pointer;
+}
+
+.thumb.selected {
+    /* outline: 3px solid #E600E3; */
+    background-color: #E600E3;
+}
+
+.thumb.selected img {
+    opacity: 0.8;
+}
