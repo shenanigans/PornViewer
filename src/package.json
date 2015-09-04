@@ -9,7 +9,8 @@
     "image-type": "^2.0.2",
     "infosex": "^0.1.3",
     "mkdirp": "^0.5.1",
-    "scum": "0.0.1"
+    "scum": "0.0.1",
+    "lwip": "^0.0.7"
   },
   "window": {
     "position": "mouse"

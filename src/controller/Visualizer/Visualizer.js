@@ -68,7 +68,6 @@ function Visualizer (controller) {
         // bump controls into view whenever the mouse moves
         var controlsTimer;
         function bumpControls(){
-            console.log ('move');
             clearTimeout (controlsTimer);
             self.controlsElem.addClass ('visible');
             controlsTimer = setTimeout (function(){
@@ -142,7 +141,6 @@ Visualizer.prototype.loadImage = function (filepath, callback) {
         this.loadingImages[filepath] = [ ];
     var imageObj = new this.window.window.Image();
     imageObj.onload = function(){
-        console.log (imageObj);
         self.readyImages[filepath] = imageObj;
         self.imageList.push (filepath);
         if (self.imageList.length > MAX_PRELOAD)
@@ -153,7 +151,6 @@ Visualizer.prototype.loadImage = function (filepath, callback) {
             queue[i] (undefined, imageObj);
     };
     imageObj.onerror = function (err) {
-        console.log (err);
         var queue = self.loadingImages[filepath];
         delete self.loadingImages[filepath];
         for (var i=0,j=queue.length; i<j; i++)
@@ -166,13 +163,13 @@ Visualizer.prototype.redraw = function(){
     if (!this.activeImage)
         return;
 
+    var width = this.activeImage.width;
+    var height = this.activeImage.height;
     var canvasWidth = this.canvas.width;
     var canvasHeight = this.canvas.height;
     this.context.clearRect (0, 0, canvasWidth, canvasHeight);
 
     if (this.mode == 'normal') {
-        var width = this.activeImage.width;
-        var height = this.activeImage.height;
         if (width > canvasWidth) {
             var coef = canvasWidth / width;
             width = canvasWidth;
@@ -185,17 +182,12 @@ Visualizer.prototype.redraw = function(){
         }
         var top = Math.floor (( canvasHeight - height ) / 2);
         var left = Math.floor (( canvasWidth - width ) / 2);
-        console.log (this.activeImage.width, this.activeImage.height, canvasWidth, canvasHeight);
-        console.log (left, top, width, height);
         this.context.drawImage (this.activeImage, left, top, width, height);
         return;
     }
 
-    var width = this.activeImage.width;
-    var height = this.activeImage.height;
     var wideRatio = canvasWidth / width;
     var tallRatio = canvasHeight / height;
-
     if (wideRatio > tallRatio) {
         width *= tallRatio;
         height *= tallRatio;

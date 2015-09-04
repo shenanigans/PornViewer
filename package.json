@@ -4,7 +4,6 @@
   "dependencies": {
     "gulp": "^3.9.0",
     "gulp-watch": "^4.3.5",
-    "gulp-zip": "^3.0.2",
-    "lwip": "^0.0.7"
+    "gulp-zip": "^3.0.2"
   }
 }
