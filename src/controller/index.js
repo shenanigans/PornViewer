@@ -51,7 +51,7 @@ function Controller (winnder, hostElem) {
 
     // load current path
     if (!(this.currentPath = window.localStorage.defaultPath))
-        window.localStorage.defaultPath = process.env[
+        this.currentPath = window.localStorage.defaultPath = process.env[
             (process.platform=='win32') ?
                 'USERPROFILE'
               : 'HOME'
@@ -66,7 +66,12 @@ function Controller (winnder, hostElem) {
     });
 
     // open the current path in the Tree
-    var pathArr = this.currentPath.split (process.platform == 'win32' ? /[\/\\]/g : '/');
+    var pathArr = this.currentPath
+     .split (process.platform == 'win32' ? /[\/\\]/g : '/')
+     .filter (Boolean)
+     ;
+    if (process.platform != 'win32')
+        pathArr[0] = '/'+pathArr[0];
     var level = new Directory (this.root, this, pathArr[0], pathArr[0]);
     level.open();
     for (var i=1,j=pathArr.length; i<j; i++) {
@@ -187,16 +192,18 @@ Controller.prototype.go = function (direction) {
             if (rowWidth > this.thumbsElem.children.length)
                 return;
             var currentIndex = Array.prototype.indexOf.call (this.thumbsElem.children, this.selectedImage);
-            if (currentIndex < rowWidth) {
+            if (currentIndex >= rowWidth)
+                currentIndex -= rowWidth;
+            else {
+                // round the world
                 var lastRowLength = this.thumbsElem.children.length % rowWidth;
                 if (!lastRowLength)
-                    currentIndex += this.thumbsElem.children.length;
-                else if (currentIndex > lastRowLength)
+                    currentIndex = this.thumbsElem.children.length - currentIndex - 1;
+                else if (currentIndex >= lastRowLength)
                     currentIndex = this.thumbsElem.children.length - 1;
                 else
-                    currentIndex += ( Math.floor (this.thumbsElem.children.length / rowWidth) * rowWidth);
-            } else
-                currentIndex -= rowWidth;
+                    currentIndex = this.thumbsElem.children.length - lastRowLength + currentIndex;
+            }
             var next = this.thumbsElem.children[currentIndex];
             this.showImage (next, next.getAttribute ('data-path'));
             break;

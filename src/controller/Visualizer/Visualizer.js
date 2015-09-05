@@ -1,6 +1,5 @@
 
 var gui = global.window.nwDispatcher.requireNwGui();
-var ChainCache = require ('cachew').ChainCache;
 
 /**     @module/class PornViewer:Visualizer
 

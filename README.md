@@ -14,8 +14,7 @@ cd src
 npm install
 npm install -g nw-gyp
 cd node_modules/lwip
-nw-gyp configure
-nw-gyp build
+nw-gyp clean configure build
 cd ../../
 gulp once
 ```
