@@ -171,26 +171,29 @@ Controller.prototype.showImage = function (thumbElem, imgPath) {
 };
 
 Controller.prototype.go = function (direction) {
-    if (!this.selectedImage)
+    if (!this.selectedImage) {
+        if (!this.thumbsElem.children.length)
+            return;
+        this.showImage (this.thumbsElem.firstChild, this.thumbsElem.firstChild.getAttribute ('data-path'));
+        this.thumbsElem.scrollTop = 0;
         return;
+    }
 
     var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
+    var next = this.selectedImage;
     switch (direction) {
         case 37:
             // go left
             if (!this.selectedImage.previousSibling)
-                return this.showImage (
-                    this.thumbsElem.lastChild,
-                    this.thumbsElem.lastChild.getAttribute ('data-path')
-                );
-            var next = this.selectedImage.previousSibling;
-            this.showImage (next, next.getAttribute ('data-path'));
+                next = this.thumbsElem.lastChild;
+            else
+                next = this.selectedImage.previousSibling;
             break;
         case 38:
             // go up
             var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
             if (rowWidth > this.thumbsElem.children.length)
-                return;
+                break;
             var currentIndex = Array.prototype.indexOf.call (this.thumbsElem.children, this.selectedImage);
             if (currentIndex >= rowWidth)
                 currentIndex -= rowWidth;
@@ -204,8 +207,7 @@ Controller.prototype.go = function (direction) {
                 else
                     currentIndex = this.thumbsElem.children.length - lastRowLength + currentIndex;
             }
-            var next = this.thumbsElem.children[currentIndex];
-            this.showImage (next, next.getAttribute ('data-path'));
+            next = this.thumbsElem.children[currentIndex];
             break;
         case 39:
             // go right
@@ -214,20 +216,30 @@ Controller.prototype.go = function (direction) {
                     this.thumbsElem.firstChild,
                     this.thumbsElem.firstChild.getAttribute ('data-path')
                 );
-            var next = this.selectedImage.nextSibling;
-            this.showImage (next, next.getAttribute ('data-path'));
+            next = this.selectedImage.nextSibling;
             break;
         case 40:
             // go down
             var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
             if (rowWidth > this.thumbsElem.children.length)
-                return;
+                break;
             var currentIndex = Array.prototype.indexOf.call (this.thumbsElem.children, this.selectedImage);
             currentIndex += rowWidth;
             if (currentIndex >= this.thumbsElem.children.length)
                 currentIndex = currentIndex % rowWidth;
-            var next = this.thumbsElem.children[currentIndex];
-            this.showImage (next, next.getAttribute ('data-path'));
+            next = this.thumbsElem.children[currentIndex];
             break;
     }
+
+    this.showImage (next, next.getAttribute ('data-path'));
+
+    // scroll to view
+    var position = next.getBoundingClientRect();
+    var offset = 0;
+    if (position.top < 0)
+        offset = position.top;
+    else if (position.bottom > this.window.innerHeight)
+        offset = position.bottom - this.window.innerHeight;
+    // KEYWORD extra offset
+    this.thumbsElem.scrollTop += offset;
 };
