@@ -50,9 +50,12 @@ function Visualizer (controller) {
         });
         self.context = self.canvas.getContext('2d');
         self.modeSelect = self.document.getElementById ('Mode');
+        self.modeSelect.value = self.mode;
         self.modeSelect.on ('change', function(){
             self.mode = self.modeSelect.value;
             self.redraw();
+            self.modeSelect.blur();
+            self.window.lastMode = self.mode;
         });
         self.closeElem = self.document.getElementById ('Close');
         self.closeElem.on ('click', function(){
@@ -71,6 +74,7 @@ function Visualizer (controller) {
             self.controlsElem.addClass ('visible');
             controlsTimer = setTimeout (function(){
                 self.controlsElem.dropClass ('visible');
+                self.modeSelect.blur();
             }, CONTROLS_TIMEOUT);
         }
         window.document.body.on ('mousemove', bumpControls);

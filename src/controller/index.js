@@ -29,6 +29,7 @@ window.on ('load', function(){
     baseController = new Controller (window, document.getElementById ('Lister'));
 });
 
+var DRIVE_REGEX = /([\w ]+\w)  +(\w:)/;
 function Controller (winnder, hostElem) {
     this.window = winnder;
     this.document = this.window.document;
@@ -50,11 +51,9 @@ function Controller (winnder, hostElem) {
     hostElem.appendChild (this.treeElem);
 
     // load current path
-    if (!(this.currentPath = window.localStorage.defaultPath))
-        this.currentPath = window.localStorage.defaultPath = process.env[
-            (process.platform=='win32') ?
-                'USERPROFILE'
-              : 'HOME'
+    if (!(this.currentPath = window.localStorage.lastPath))
+        this.currentPath = window.localStorage.lastPath = process.env[
+            process.platform = 'win32' ? 'USERPROFILE' : 'HOME'
         ];
 
     // create visualizer
@@ -73,6 +72,7 @@ function Controller (winnder, hostElem) {
     if (process.platform != 'win32')
         pathArr[0] = '/'+pathArr[0];
     var level = new Directory (this.root, this, pathArr[0], pathArr[0]);
+    this.root.children[pathArr[0]] = level;
     level.open();
     for (var i=1,j=pathArr.length; i<j; i++) {
         level = level.addChild (pathArr[i]);
@@ -81,6 +81,32 @@ function Controller (winnder, hostElem) {
 
     // select the current path
     this.select (this.currentPath, level.elem);
+
+    // on windows we need to enumerate the drives
+    if (process.platform == 'win32')
+        require('child_process').exec (
+            'wmic logicaldisk get description, deviceid',
+            function (err, stdout, stderr) {
+                if (err) {
+                    console.log ('failed to enumerate drives');
+                    return;
+                }
+                driveinfo = stdout.split (/\r\n?/g).slice (1).filter (Boolean).map (function (drive) {
+                    var match = DRIVE_REGEX.exec (drive);
+                    return { type:match[1], path:match[2] };
+                });
+                console.log ('enumerated drives', driveinfo);
+                for (var i=0,j=driveinfo.length; i<j; i++) {
+                    var drive = driveinfo[i];
+                    if (Object.hasOwnProperty.call (self.root.children, drive.path)) // already listed
+                        continue;
+                    var name = drive.path;
+                    if (drive.type == 'Removable Disk')
+                        name += ' (removable)';
+                    self.root.children[drive.path] = new Directory (self.root, self, drive.path, name);
+                }
+            }
+        );
 }
 
 var THUMBS_IN_FLIGHT = 12;
@@ -132,19 +158,33 @@ Controller.prototype.select = function (dirpath, elem) {
             ThumbWarrior.getThumb (dirpath, imageNames[imageI], function (err, thumbPath, padHeight) {
                 if (self.selectedPath != dirpath)
                     return callback (new Error ('cancelled'));
+                var container = imageElems[imageI];
                 if (err) {
                     console.log ('failed', imageNames[imageI], err);
-                    imageElems[imageI].dispose();
+                    container.dispose();
+                    if (container === self.selectedImage) {
+                        if (container.nextSibling)
+                            self.showImage (
+                                container.nextSibling,
+                                container.nextSibling.getAttribute ('data-path')
+                            );
+                        else if (container.previousSibling)
+                            self.showImage (
+                                container.previousSibling,
+                                container.previousSibling.getAttribute ('data-path')
+                            );
+                    }
                     return callback();
                 }
-
                 var newThumb = self.document.createElement ('img');
                 newThumb.setAttribute ('src', thumbPath);
                 if (padHeight)
                     newThumb.setAttribute ('style', 'margin-top:'+padHeight+'px');
-                imageElems[imageI].appendChild (newThumb);
+                container.appendChild (newThumb);
                 callback();
             });
+        }, function(){
+            self.window.localStorage.lastPath = dirpath;
         });
     });
 };
