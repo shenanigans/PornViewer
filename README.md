@@ -2,10 +2,10 @@
 An image viewer for mission-critical applications.
 
 ## Installation
-PornViewer currently does not come pre-built. You can currently build your own for Windows and
-Linux. First, clone this repository, download the correct [node-webkit]
-(https://github.com/nwjs/nw.js/) prebuild for your environment, rename its directory to `nw` and put
-it in the PornViewer directory.
+PornViewer currently does not come pre-built. You can currently build your own for Windows and OSX.
+First, clone this repository, download the correct prebuild of [node-webkit 0.12.x]
+(https://github.com/nwjs/nw.js#user-content-downloads) for your environment, rename its directory to
+`nw` and put it in the PornViewer directory.
 
 ```shell
 cd PornViewer
@@ -14,7 +14,7 @@ cd src
 npm install
 npm install -g nw-gyp
 cd node_modules/lwip
-nw-gyp clean configure build
+nw-gyp rebuild
 cd ../../
 gulp once
 ```

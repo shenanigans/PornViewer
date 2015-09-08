@@ -12,7 +12,7 @@ var Directory = require ('./controller/Directory');
 var document = window.document;
 var WarriorElem, warriors, nextWarrior = 0;
 var baseController;
-require ('scum')(window);
+require ('scum') (window);
 window.on ('load', function(){
     gui.Window.get().show();
 
@@ -50,11 +50,75 @@ function Controller (winnder, hostElem) {
     this.root = { children:{}, childrenElem:this.treeElem };
     hostElem.appendChild (this.treeElem);
 
-    // load current path
-    if (!(this.currentPath = window.localStorage.lastPath))
+    // load opened file or last path
+    var filename;
+    if (gui.App.argv.length > 1) {
+        var openPath = gui.App.argv[1];
+        // exists? directory?
+        try {
+            var stats = fs.statSync (openPath);
+            if (stats.isDirectory())
+                this.currentPath = openPath;
+            else {
+                var pathinfo = path.parse (openPath);
+                self.currentPath = pathinfo.dir;
+                filename = pathinfo.base;
+            }
+        } catch (err) { /* fall through */ }
+    }
+    if (!this.currentPath && !(this.currentPath = window.localStorage.lastPath))
         this.currentPath = window.localStorage.lastPath = process.env[
             process.platform = 'win32' ? 'USERPROFILE' : 'HOME'
         ];
+
+    // reveal path
+    this.openCurrent (function (err) {
+        if (err)
+            return;
+        if (filename)
+            self.showImage (undefined, path.join (self.currentPath, filename));
+    });
+
+    // wait for future file open operations
+    function openFile (cmdline) {
+        // exists? directory?
+        var filename;
+        try {
+            var openPath = cmdline.split (/ /g)[1];
+            var stats = fs.statSync (openPath);
+            if (stats.isDirectory())
+                self.currentPath = openPath;
+            else {
+                var pathinfo = path.parse (openPath);
+                self.currentPath = pathinfo.dir;
+                filename = pathinfo.base;
+            }
+        } catch (err) { console.log (err); return false; }
+
+        console.log ('file?', filename);
+        self.openCurrent(function (err) {
+            console.log ('called back');
+            if (err)
+                return;
+            if (filename)
+                self.showImage (undefined, openPath);
+        });
+
+        return false;
+    }
+    gui.App.on ('open', openFile);
+    this.window.on ('dragover', function (event) {
+        event.preventDefault();
+        return false;
+    });
+    this.window.on ('drop', function (event) {
+        event.preventDefault();
+        var files = event.dataTransfer.files;
+        if (!files.length)
+            return false;
+        openFile ('PornViewer '+files[files.length-1].path);
+        return false;
+    });
 
     // create visualizer
     var visualizer = this.visualizer = new Visualizer (this);
@@ -63,24 +127,6 @@ function Controller (winnder, hostElem) {
         nwWindow.close (true);
         visualizer.window.close();
     });
-
-    // open the current path in the Tree
-    var pathArr = this.currentPath
-     .split (process.platform == 'win32' ? /[\/\\]/g : '/')
-     .filter (Boolean)
-     ;
-    if (process.platform != 'win32')
-        pathArr[0] = '/'+pathArr[0];
-    var level = new Directory (this.root, this, pathArr[0], pathArr[0]);
-    this.root.children[pathArr[0]] = level;
-    level.open();
-    for (var i=1,j=pathArr.length; i<j; i++) {
-        level = level.addChild (pathArr[i]);
-        level.open();
-    }
-
-    // select the current path
-    this.select (this.currentPath, level.elem);
 
     // on windows we need to enumerate the drives
     if (process.platform == 'win32')
@@ -103,14 +149,33 @@ function Controller (winnder, hostElem) {
                     var name = drive.path;
                     if (drive.type == 'Removable Disk')
                         name += ' (removable)';
-                    self.root.children[drive.path] = new Directory (self.root, self, drive.path, name);
+                    self.root.children[drive.path] = new Directory (self.root, self, drive.path, drive.path, name);
                 }
             }
         );
 }
 
+Controller.prototype.openCurrent = function (listed) {
+    var pathArr = this.currentPath
+     .split (process.platform == 'win32' ? /[\/\\]/g : '/')
+     .filter (Boolean)
+     ;
+    if (process.platform != 'win32')
+        pathArr[0] = '/'+pathArr[0];
+    var level = new Directory (this.root, this, pathArr[0], pathArr[0]);
+    this.root.children[pathArr[0]] = level;
+    level.open();
+    for (var i=1,j=pathArr.length; i<j; i++) {
+        level = level.addChild (pathArr[i]);
+        level.open();
+    }
+
+    // select the current path
+    this.select (this.currentPath, level.elem, listed);
+};
+
 var THUMBS_IN_FLIGHT = 12;
-Controller.prototype.select = function (dirpath, elem) {
+Controller.prototype.select = function (dirpath, elem, listed) {
     if (this.lastSelectedElem) {
         this.lastSelectedElem.dropClass ('selected');
         delete this.lastSelectedElem;
@@ -128,7 +193,8 @@ Controller.prototype.select = function (dirpath, elem) {
     var self = this;
     fs.readdir (dirpath, function (err, filenames) {
         if (err) {
-
+            if (listed)
+                listed (err);
             return;
         }
         var imageNames = [];
@@ -153,6 +219,9 @@ Controller.prototype.select = function (dirpath, elem) {
                 imageElems.push (newThumbContainer);
             }
         });
+
+        if (listed)
+            listed();
 
         async.timesLimit (imageNames.length, THUMBS_IN_FLIGHT, function (imageI, callback) {
             ThumbWarrior.getThumb (dirpath, imageNames[imageI], function (err, thumbPath, padHeight) {
@@ -192,6 +261,17 @@ Controller.prototype.select = function (dirpath, elem) {
 Controller.prototype.showImage = function (thumbElem, imgPath) {
     if (this.selectedImage)
         this.selectedImage.dropClass ('selected');
+    if (!thumbElem) {
+        // search for thumbElem
+        var done = false;
+        for (var i=0,j=this.thumbsElem.children.length; i<j; i++)
+            if (( thumbElem = this.thumbsElem.children[i] ).getAttribute ('data-path') == imgPath) {
+                done = true;
+                break;
+            }
+        if (!done)
+            return;
+    }
     thumbElem.addClass ('selected');
     this.selectedImage = thumbElem;
 
@@ -206,8 +286,15 @@ Controller.prototype.showImage = function (thumbElem, imgPath) {
     if (thumbIndex + 1 < this.thumbsElem.children.length)
         this.visualizer.preload (this.thumbsElem.children[thumbIndex+1].getAttribute ('data-path'));
 
-    // scroll if necessary
-    // KEYWORD
+    // scroll to view
+    var position = thumbElem.getBoundingClientRect();
+    var offset = 0;
+    if (position.top < 0)
+        offset = position.top;
+    else if (position.bottom > this.window.innerHeight)
+        offset = position.bottom - this.window.innerHeight;
+    // KEYWORD extra offset
+    this.thumbsElem.scrollTop += offset;
 };
 
 Controller.prototype.go = function (direction) {
@@ -272,14 +359,4 @@ Controller.prototype.go = function (direction) {
     }
 
     this.showImage (next, next.getAttribute ('data-path'));
-
-    // scroll to view
-    var position = next.getBoundingClientRect();
-    var offset = 0;
-    if (position.top < 0)
-        offset = position.top;
-    else if (position.bottom > this.window.innerHeight)
-        offset = position.bottom - this.window.innerHeight;
-    // KEYWORD extra offset
-    this.thumbsElem.scrollTop += offset;
 };

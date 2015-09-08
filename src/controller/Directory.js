@@ -4,7 +4,7 @@ var path = require ('path');
 var async = require ('async');
 // var gaze = require ('gaze');
 
-function Directory (parent, controller, dirpath, name) {
+function Directory (parent, controller, dirpath, name, extraName) {
     this.parent = parent;
     this.controller = controller;
     this.dirpath = dirpath;
@@ -23,7 +23,7 @@ function Directory (parent, controller, dirpath, name) {
     this.elem.appendChild (this.directoryImg);
     var titleElem = controller.document.createElement ('div');
     titleElem.setAttribute ('class', 'title');
-    titleElem.appendChild (controller.document.createTextNode (name));
+    titleElem.appendChild (controller.document.createTextNode (extraName || name));
     titleElem.on ('mouseup', function(){
         self.open();
         controller.select (dirpath, self.elem);
