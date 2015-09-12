@@ -13,6 +13,8 @@
     "lwip": "^0.0.7"
   },
   "window": {
-    "position": "mouse"
+    "position": "mouse",
+    "toolbar": false,
+    "frame": false
   }
 }

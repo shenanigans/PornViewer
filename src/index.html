@@ -5,11 +5,28 @@
     <script type="text/javascript" src="controller/index.js"></script>
 </head>
 <body>
-    <div id="Lister"></div>
+    <div id="Lister">
+        <div id="Tree"></div>
+        <div id="Host">
+            <div id="Controls">
+                <label>sort by<select id="Sort">
+                    <option value="name">name</option>
+                    <option value="created">date</option>
+                    <option value="size">size</option>
+                </select></label>
+            </div>
+        </div>
+    </div>
     <div id="Splash">
         <div id="Info">
             <h1>PornViewer<img src="controller/copyleft.png" /></h1>
         </div>
+    </div>
+    <div id="Bar">
+        PornViewer 0.0.1
+        <div id="Close" class="barButton"></div>
+        <div id="Maximize" class="barButton"></div>
+        <div id="Minimize" class="barButton"></div>
     </div>
 </body>
 </html>

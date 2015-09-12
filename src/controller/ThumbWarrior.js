@@ -84,69 +84,97 @@ module.exports.getThumb = function (dirpath, filename, callback) {
     ], function(){
         if (thumbPath)
             return callback (undefined, 'file://'+thumbPath, pad, stats);
-        function writeNewThumb (err, image) {
+
+        var finalImage;
+        function writeNewThumb (err) {
             if (err)
                 return callback (err);
 
-            var width = image.width();
-            var height = image.height();
-            var finalHeight = image.height();
+            var width = finalImage.width();
+            var height = finalImage.height();
+            var finalHeight = finalImage.height();
 
             // write the thumbnail data to disc and update the thumbnail database
-            image.writeFile (newThumbPath, 'png', function (err) {
+            finalImage.writeFile (newThumbPath, 'png', function (err) {
                 if (err)
                     return callback (err);
                 if (finalHeight < THUMB_SIZE)
                     pad = Math.floor ((THUMB_SIZE - finalHeight) / 2);
                 db.transaction (function (tx) {
                     tx.executeSql (
-                        'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type) VALUES (?, ?, ?, ?, ?)',
-                        [ dirpath, filename, newThumbPath, pad, imageType ]
+                        'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type, size, created) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        [ dirpath, filename, newThumbPath, pad, imageType.ext, stats.size, stats.created ]
                     );
                 });
-                callback (undefined, 'file://' + newThumbPath, pad, {});
+                callback (undefined, 'file://' + newThumbPath, pad, stats);
             });
         }
-        fs.readFile (filepath, function (err, buf) {
-            if (err)
-                return callback (err);
-            imageType = getType (buf);
-            lwip.open (buf, imageType.ext, function (err, image) {
-                if (err)
-                    return callback (err);
-                srcImage = image;
 
-                var width = srcImage.width();
-                var height = srcImage.height();
+        stats = {};
+        async.parallel ([
+            function (callback) {
+                fs.readFile (filepath, function (err, buf) {
+                    if (err)
+                        return callback (err);
+                    imageType = getType (buf);
+                    stats.type = imageType.ext;
+                    lwip.open (buf, imageType.ext, function (err, image) {
+                        if (err)
+                            return callback (err);
+                        srcImage = image;
 
-                if (width <= THUMB_SIZE && height <= THUMB_SIZE)
-                    return callback();
+                        var width = srcImage.width();
+                        var height = srcImage.height();
 
-                if (width == height)
-                    return srcImage.resize (150, 150, writeNewThumb);
+                        if (width <= THUMB_SIZE && height <= THUMB_SIZE)
+                            return callback();
 
-                // var top, right, bottom, left, scale;
-                var finalWidth, finalHeight;
-                if (width > height) {
-                    var maxClip = width * MAX_CLIP;
-                    newWidth = Math.max (width - maxClip, height);
-                    newHeight = height;
-                    scale = THUMB_SIZE / newWidth;
-                } else {
-                    var maxClip = width * MAX_CLIP;
-                    newHeight = Math.max (height - maxClip, width);
-                    newWidth = width;
-                    scale = THUMB_SIZE / newHeight;
-                }
+                        if (width == height)
+                            return srcImage.resize (150, 150, function (err, image) {
+                                if (err)
+                                    return callback (err);
+                                finalImage = image;
+                                callback();
+                            });
 
-                // finalize the transform
-                var batch = srcImage.batch()
-                 // .crop (left, top, right, bottom)
-                 .crop (newWidth, newHeight)
-                 .scale (scale)
-                 ;
-                batch.exec (writeNewThumb);
-            });
-        });
+                        // var top, right, bottom, left, scale;
+                        var finalWidth, finalHeight;
+                        if (width > height) {
+                            var maxClip = width * MAX_CLIP;
+                            newWidth = Math.max (width - maxClip, height);
+                            newHeight = height;
+                            scale = THUMB_SIZE / newWidth;
+                        } else {
+                            var maxClip = width * MAX_CLIP;
+                            newHeight = Math.max (height - maxClip, width);
+                            newWidth = width;
+                            scale = THUMB_SIZE / newHeight;
+                        }
+
+                        // finalize the transform
+                        var batch = srcImage.batch()
+                         // .crop (left, top, right, bottom)
+                         .crop (newWidth, newHeight)
+                         .scale (scale)
+                         ;
+                        batch.exec (function (err, image) {
+                            if (err)
+                                return callback (err);
+                            finalImage = image;
+                            callback();
+                        });
+                    });
+                });
+            },
+            function (callback) {
+                fs.stat (filepath, function (err, filestats) {
+                    if (err)
+                        return callback (err);
+                    stats.size = filestats.size;
+                    stats.created = filestats.ctime.getTime();
+                    callback();
+                });
+            }
+        ], writeNewThumb);
     });
 };

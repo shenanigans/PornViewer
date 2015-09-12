@@ -53,14 +53,20 @@ function Directory (parent, controller, dirpath, name, extraName) {
 module.exports = Directory;
 
 Directory.prototype.addChild = function (name) {
-    if (Object.hasOwnProperty.call (this.children, name))
+    if (Object.hasOwnProperty.call (this.children, name)) {
+        console.log ('add existing', this.name, name);
+        this.controller.revealDirectory();
         return this.children[name];
-    return this.children[name] = new Directory (
+    }
+    var child = this.children[name] = new Directory (
         this,
         this.controller,
         path.join (this.dirpath, name),
         name
     );
+    console.log ('add new', this.name, name);
+    this.controller.revealDirectory();
+    return child;
 };
 
 Directory.prototype.open = function(){
@@ -69,6 +75,8 @@ Directory.prototype.open = function(){
     this.isOpen = true;
     this.elem.addClass ('open');
     this.directoryImg.setAttribute ('src', 'controller/directory_open.png');
+    console.log ('opened');
+    this.controller.revealDirectory();
 
     var self = this;
     fs.readdir (this.dirpath, function (err, children) {
@@ -80,27 +88,21 @@ Directory.prototype.open = function(){
         }
 
         // trim missing
-        var ownChildren = Object.keys (self.children);
-        if (!ownChildren.length)
-            unknown = children;
-        else {
-            var i = children.length;
-            var j = ownChildren.length;
-            var unknown = [];
-            while (i >= 0 && j >= 0) {
-                if (children[i] == ownChildren[j]) {
-                    i--;
-                    j--;
-                } else if (children[i] < ownChildren[j]) {
-                    delete self.children[ownChildren[j]];
-                    self.childrenElem[j].dispose();
-                    j--;
-                } else {
-                    unknown.push (children[i]);
-                    i--;
-                }
-            }
+        var unknown = [];
+        var newNames = {};
+        for (var i=0,j=children.length; i<j; i++) {
+            var child = children[i];
+            newNames[child] = true;
+            if (!Object.hasOwnProperty.call (self.children, child))
+                unknown.push (child);
         }
+        var ownChildren = Object.keys (self.children);
+        for (var i=0,j=ownChildren.length; i<j; i++)
+            if (!Object.hasOwnProperty.call (newNames, ownChildren[i])) {
+                var child = ownChildren[i];
+                self.children[child].dispose();
+                delete self.children[child];
+            }
 
         // unknown keys which are directories should be added
         async.each (unknown, function (newName, callback) {

@@ -14,7 +14,8 @@ var WarriorElem, warriors, nextWarrior = 0;
 var baseController;
 require ('scum') (window);
 window.on ('load', function(){
-    gui.Window.get().show();
+    var Window = gui.Window.get();
+    Window.show();
 
     var InfoElem = document.getElementById ('Info');
     var VersionElem = document.createElement ('h2');
@@ -26,14 +27,15 @@ window.on ('load', function(){
         document.getElementById ('Splash').addClass ('hidden');
     }, 1000);
 
-    baseController = new Controller (window, document.getElementById ('Lister'));
+    baseController = new Controller (Window);
 });
 
 var DRIVE_REGEX = /([\w ]+\w)  +(\w:)/;
 function Controller (winnder, hostElem) {
     this.window = winnder;
-    this.document = this.window.document;
-    this.hostElem = hostElem;
+    winnder.controller = this;
+    this.document = winnder.window.document;
+    this.hostElem = this.document.getElementById ('Host');
 
     // keyboard navigation events
     var self = this;
@@ -44,11 +46,72 @@ function Controller (winnder, hostElem) {
         return false;
     });
 
+    // bar buttons
+    this.document.getElementById ('Minimize').on ('click', function(){
+        self.window.minimize();
+    });
+    var maxElem = this.document.getElementById ('Maximize');
+    maxElem.on ('click', function(){
+        if (self.isMaximized)
+            self.window.unmaximize();
+        else
+            self.window.maximize();
+    });
+    winnder.on ('maximize', function(){
+        self.isMaximized = true;
+        maxElem.addClass ('restore');
+    });
+    winnder.on ('unmaximize', function(){
+        self.isMaximized = false;
+        maxElem.dropClass ('restore');
+    });
+    winnder.on ('resize', function(){
+        self.isMaximized = false;
+        self.revealDirectory();
+    });
+    this.document.getElementById ('Close').on ('click', function(){
+        self.window.close();
+    });
+
+    // controls
+    this.thumbsTop = this.document.getElementById ('Controls').getBoundingClientRect().bottom;
+    this.sortSelect = this.document.getElementById ('Sort');
+    this.sortBy = 'name';
+    this.sortSelect.on ('change', function(){
+        self.sortBy = self.sortSelect.value;
+        // sort existing
+        var potemkin = [];
+        Array.prototype.push.apply (potemkin, self.thumbsElem.children);
+        var attr = 'data-'+self.sortBy;
+        potemkin.sort (function (able, baker) {
+            aVal = able.getAttribute (attr);
+            bVal = baker.getAttribute (attr);
+            if (aVal === null)
+                if (bVal === null)
+                    return 0;
+                else
+                    return 1;
+            else if (bVal === null)
+                return -1;
+            if (self.sortBy != 'name') {
+                aVal = Number (aVal);
+                bVal = Number (bVal);
+            }
+            if (aVal > bVal)
+                return 1;
+            if (aVal == bVal)
+                return 0;
+            return -1;
+        });
+        for (var i=0,j=potemkin.length; i<j; i++)
+            self.thumbsElem.appendChild (potemkin[i]);
+    });
+
+
     // set up Tree Element
-    this.treeElem = this.document.createElement ('div');
-    this.treeElem.setAttribute ('id', 'Tree');
+    this.treeTop = this.document.getElementById ('Bar').getBoundingClientRect().bottom;
+    this.treeElem = this.document.getElementById ('Tree');
     this.root = { children:{}, childrenElem:this.treeElem };
-    hostElem.appendChild (this.treeElem);
 
     // load opened file or last path
     var filename;
@@ -95,9 +158,7 @@ function Controller (winnder, hostElem) {
             }
         } catch (err) { console.log (err); return false; }
 
-        console.log ('file?', filename);
         self.openCurrent(function (err) {
-            console.log ('called back');
             if (err)
                 return;
             if (filename)
@@ -134,14 +195,13 @@ function Controller (winnder, hostElem) {
             'wmic logicaldisk get description, deviceid',
             function (err, stdout, stderr) {
                 if (err) {
-                    console.log ('failed to enumerate drives');
+                    console.log ('failed to enumerate drives', err);
                     return;
                 }
                 driveinfo = stdout.split (/\r\n?/g).slice (1).filter (Boolean).map (function (drive) {
                     var match = DRIVE_REGEX.exec (drive);
                     return { type:match[1], path:match[2] };
                 });
-                console.log ('enumerated drives', driveinfo);
                 for (var i=0,j=driveinfo.length; i<j; i++) {
                     var drive = driveinfo[i];
                     if (Object.hasOwnProperty.call (self.root.children, drive.path)) // already listed
@@ -154,6 +214,25 @@ function Controller (winnder, hostElem) {
             }
         );
 }
+
+Controller.prototype.revealDirectory = function(){
+    clearTimeout (this.revealTimeout);
+    var self = this;
+    this.revealTimeout = setTimeout (function(){
+        // scroll to view
+        if (!self.lastSelectedElem)
+            return;
+        var position = self.lastSelectedElem.getBoundingClientRect();
+        var offset = 0;
+        if (position.top < self.treeTop)
+            offset = position.top - self.treeTop;
+        else if (position.bottom > self.treeElem.clientHeight + self.treeTop)
+            offset = position.bottom - self.treeElem.clientHeight - self.treeTop;
+        if (!offset)
+            return;
+        self.treeElem.scrollTop += offset;
+    }, 100);
+};
 
 Controller.prototype.openCurrent = function (listed) {
     var pathArr = this.currentPath
@@ -182,14 +261,17 @@ Controller.prototype.select = function (dirpath, elem, listed) {
     }
     elem.addClass ('selected');
     this.lastSelectedElem = elem;
+
+    // new <div.thumbs>
     this.selectedPath = dirpath;
     if (this.thumbsElem)
         this.thumbsElem.dispose();
     this.thumbsElem = this.document.createElement ('div');
     this.thumbsElem.setAttribute ('class', 'thumbs');
     delete this.selectedImage;
-    this.hostElem.appendChild (this.thumbsElem);
+    this.hostElem.insertBefore (this.thumbsElem, this.hostElem.firstChild);
 
+    // begin listing
     var self = this;
     fs.readdir (dirpath, function (err, filenames) {
         if (err) {
@@ -210,6 +292,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 imageNames.push (fname);
                 var newThumbContainer = self.document.createElement ('div');
                 newThumbContainer.setAttribute ('class', 'thumb');
+                newThumbContainer.setAttribute ('data-name', fname);
                 var imgPath = path.join (dirpath, fname);
                 newThumbContainer.setAttribute ('data-path', imgPath);
                 newThumbContainer.on ('click', function(){
@@ -224,12 +307,12 @@ Controller.prototype.select = function (dirpath, elem, listed) {
             listed();
 
         async.timesLimit (imageNames.length, THUMBS_IN_FLIGHT, function (imageI, callback) {
-            ThumbWarrior.getThumb (dirpath, imageNames[imageI], function (err, thumbPath, padHeight) {
+            ThumbWarrior.getThumb (dirpath, imageNames[imageI], function (err, thumbPath, padHeight, stats) {
                 if (self.selectedPath != dirpath)
                     return callback (new Error ('cancelled'));
                 var container = imageElems[imageI];
                 if (err) {
-                    console.log ('failed', imageNames[imageI], err);
+                    console.log ('thumbnail failed', imageNames[imageI], err);
                     container.dispose();
                     if (container === self.selectedImage) {
                         if (container.nextSibling)
@@ -245,15 +328,50 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                     }
                     return callback();
                 }
+
+                container.setAttribute ('data-type', stats.type);
+                container.setAttribute ('data-size', stats.size);
+                container.setAttribute ('data-created', stats.created);
+
                 var newThumb = self.document.createElement ('img');
                 newThumb.setAttribute ('src', thumbPath);
                 if (padHeight)
                     newThumb.setAttribute ('style', 'margin-top:'+padHeight+'px');
                 container.appendChild (newThumb);
+
+                // sorting
+                if (self.sortBy == 'name')
+                    return callback();
+                var attr = 'data-'+self.sortBy;
+                var value = stats[self.sortBy];
+                var thumbs = self.thumbsElem.children;
+                var other = thumbs[0].getAttribute (attr);
+                if (other === null || other >= value) {
+                    self.thumbsElem.insertBefore (container, thumbs[0]);
+                    return callback();
+                }
+                var middle = thumbs.length / 2;
+                var step = middle;
+                while (true) {
+                    step /= 2;
+                    var i = Math.floor (middle);
+                    other = thumbs[i].getAttribute (attr);
+                    if (other === null)
+                        middle -= step;
+                    else if (other >= value) {
+                        var prior = thumbs[i-1].getAttribute (attr);
+                        if (prior === null || prior <= value) {
+                            self.thumbsElem.insertBefore (container, thumbs[i]);
+                            return callback();
+                        } else
+                            middle -= step;
+                    } else
+                        middle += step;
+                }
                 callback();
             });
         }, function(){
-            self.window.localStorage.lastPath = dirpath;
+            window.localStorage.lastPath = dirpath;
         });
     });
 };
@@ -281,28 +399,78 @@ Controller.prototype.showImage = function (thumbElem, imgPath) {
     this.visualizer.display (imgPath);
 
     // preload nearby thumbs
-    if (thumbIndex > 0)
-        this.visualizer.preload (this.thumbsElem.children[thumbIndex-1].getAttribute ('data-path'));
-    if (thumbIndex + 1 < this.thumbsElem.children.length)
-        this.visualizer.preload (this.thumbsElem.children[thumbIndex+1].getAttribute ('data-path'));
+    var thumbCount = this.thumbsElem.children.length;
+    if (thumbCount >= 3) {
+        if (thumbIndex > 0)
+            this.visualizer.preload (this.thumbsElem.children[thumbIndex-1].getAttribute ('data-path'));
+        if (thumbIndex + 1 < this.thumbsElem.children.length)
+            this.visualizer.preload (this.thumbsElem.children[thumbIndex+1].getAttribute ('data-path'));
+        var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
+        if (thumbCount >= rowWidth) {
+            this.visualizer.preload (this.lookUp().getAttribute ('data-path'));
+            if (thumbCount > 2 * rowWidth)
+                this.visualizer.preload (this.lookDown().getAttribute ('data-path'));
+        }
+    }
 
     // scroll to view
     var position = thumbElem.getBoundingClientRect();
     var offset = 0;
-    if (position.top < 0)
-        offset = position.top;
-    else if (position.bottom > this.window.innerHeight)
-        offset = position.bottom - this.window.innerHeight;
-    // KEYWORD extra offset
+    if (position.top < this.thumbsTop)
+        offset = position.top - this.thumbsTop;
+    else if (position.bottom > this.window.window.innerHeight)
+        offset = position.bottom - this.window.window.innerHeight;
     this.thumbsElem.scrollTop += offset;
+};
+
+Controller.prototype.lookUp = function(){
+    var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
+    var currentIndex = Array.prototype.indexOf.call (this.thumbsElem.children, this.selectedImage);
+    if (rowWidth > this.thumbsElem.children.length)
+        return currentIndex;
+    if (currentIndex >= rowWidth)
+        currentIndex -= rowWidth;
+    else {
+        // round the world
+        var lastRowLength = this.thumbsElem.children.length % rowWidth;
+        if (!lastRowLength)
+            currentIndex = this.thumbsElem.children.length - currentIndex - 1;
+        else if (currentIndex >= lastRowLength)
+            currentIndex = this.thumbsElem.children.length - 1;
+        else
+            currentIndex = this.thumbsElem.children.length - lastRowLength + currentIndex;
+    }
+    return this.thumbsElem.children[currentIndex];
+};
+
+Controller.prototype.lookDown = function(){
+    var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
+    var currentIndex = Array.prototype.indexOf.call (this.thumbsElem.children, this.selectedImage);
+    if (rowWidth > this.thumbsElem.children.length)
+        return currentIndex;
+    currentIndex += rowWidth;
+    if (currentIndex >= this.thumbsElem.children.length)
+        currentIndex = currentIndex % rowWidth;
+    return this.thumbsElem.children[currentIndex];
 };
 
 Controller.prototype.go = function (direction) {
     if (!this.selectedImage) {
         if (!this.thumbsElem.children.length)
             return;
-        this.showImage (this.thumbsElem.firstChild, this.thumbsElem.firstChild.getAttribute ('data-path'));
-        this.thumbsElem.scrollTop = 0;
+        if (direction > 38) {
+            this.showImage (
+                this.thumbsElem.firstChild,
+                this.thumbsElem.firstChild.getAttribute ('data-path')
+            );
+            this.thumbsElem.scrollTop = 0;
+        } else {
+            this.showImage (
+                this.thumbsElem.lastChild,
+                this.thumbsElem.lastChild.getAttribute ('data-path')
+            );
+            this.thumbsElem.scrollTop = this.thumbsElem.scrollHeight;
+        }
         return;
     }
 
@@ -318,23 +486,7 @@ Controller.prototype.go = function (direction) {
             break;
         case 38:
             // go up
-            var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
-            if (rowWidth > this.thumbsElem.children.length)
-                break;
-            var currentIndex = Array.prototype.indexOf.call (this.thumbsElem.children, this.selectedImage);
-            if (currentIndex >= rowWidth)
-                currentIndex -= rowWidth;
-            else {
-                // round the world
-                var lastRowLength = this.thumbsElem.children.length % rowWidth;
-                if (!lastRowLength)
-                    currentIndex = this.thumbsElem.children.length - currentIndex - 1;
-                else if (currentIndex >= lastRowLength)
-                    currentIndex = this.thumbsElem.children.length - 1;
-                else
-                    currentIndex = this.thumbsElem.children.length - lastRowLength + currentIndex;
-            }
-            next = this.thumbsElem.children[currentIndex];
+            next = this.lookUp();
             break;
         case 39:
             // go right
@@ -347,14 +499,7 @@ Controller.prototype.go = function (direction) {
             break;
         case 40:
             // go down
-            var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
-            if (rowWidth > this.thumbsElem.children.length)
-                break;
-            var currentIndex = Array.prototype.indexOf.call (this.thumbsElem.children, this.selectedImage);
-            currentIndex += rowWidth;
-            if (currentIndex >= this.thumbsElem.children.length)
-                currentIndex = currentIndex % rowWidth;
-            next = this.thumbsElem.children[currentIndex];
+            next = this.lookDown();
             break;
     }
 

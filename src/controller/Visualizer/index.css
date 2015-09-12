@@ -11,17 +11,22 @@ html {
     right: 0;
     bottom: 0;
     left: 0;
-    background-color: #000;
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+.nocurse {
+    cursor: none;
 }
 
 #Controls {
     -webkit-app-region: drag;
+    -webkit-user-select: none;
+    padding: 0.2em 0 0 0.2em;
     position: fixed;
     top: 0;
     right: 0;
     left: 0;
-    padding: 0.5em 0.5em 0.4em;
-    background-color: rgba(113, 0, 109, 0.75);
+    background-color: #E600DD;
     transition: opacity 0.5s ease-out;
     opacity: 0;
     color: #fff;
@@ -40,13 +45,10 @@ html {
 
 #Controls select, #Controls input {
     -webkit-app-region: no-drag;
-    margin: 0.3em 4% 0 0;
     vertical-align: top;
 }
 
 #Controls label {
-    margin: 0.25em 0 0 0;
-    display: inline-block;
 }
 
 #Controls input {
@@ -63,10 +65,43 @@ html {
 
 #Drag {
     float: left;
+    height: 1.5em;
+    margin-top: -0.1em;
+}
+
+.controlButton {
+    float: right;
+    height: 1.7em;
+    width: 2.5em;
+    margin: -0.2em 0 0 0.1em;
+    transition: background-color 0.3s ease-in-out;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    background-position: center;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+.controlButton:hover {
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+#Minimize {
+    background-image: url('../minimize.png');
+}
+
+#Maximize {
+    background-image: url('../maximize.png');
+}
+
+#Maximize.restore {
+    background-image: url('../restore.png');
 }
 
 #Close {
-    -webkit-app-region: no-drag;
-    float: right;
-    cursor: pointer;
+    background-image: url('../close.png');
+}
+
+#Close:hover {
+    background-color: rgba(255, 0, 0, 0.62);
 }

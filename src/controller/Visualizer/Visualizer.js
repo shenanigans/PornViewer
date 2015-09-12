@@ -13,14 +13,15 @@ function Visualizer (controller) {
     this.loadingImages = {};
     this.imageList = [];
 
-    this.mode = controller.window.localStorage.lastMode;
+    this.mode = window.localStorage.lastMode;
     if (!this.mode)
-        this.mode = controller.window.localStorage.lastMode = 'normal';
+        this.mode = window.localStorage.lastMode = 'normal';
 
     // launch the Visualizer Window
     this.window = gui.Window.open ('./controller/Visualizer/index.html', {
-        toolbar: false,
-        frame:   false
+        toolbar:        false,
+        frame:          false,
+        transparent:    true
     });
 
     var self = this;
@@ -29,7 +30,6 @@ function Visualizer (controller) {
         var window = self.window.window;
         require ('scum') (window);
         self.document = window.document;
-        // self.window.showDevTools();
 
         // keyboard navigation events
         self.document.body.on ('keydown', function (event) {
@@ -43,10 +43,30 @@ function Visualizer (controller) {
         self.canvas = self.document.getElementById ('Display');
         self.canvas.width = self.canvas.clientWidth;
         self.canvas.height = self.canvas.clientHeight;
-        self.window.on ('resize', function(){
+        self.document.getElementById ('Minimize').on ('click', function(){
+            self.window.minimize();
+        });
+        var maxElem = self.document.getElementById ('Maximize');
+        maxElem.on ('click', function(){
+            if (self.isMaximized)
+                self.window.unmaximize();
+            else
+                self.window.maximize();
+        });
+        self.window.on ('maximize', function(){
+            self.isMaximized = true;
+            maxElem.addClass ('restore');
+        });
+        self.window.on ('unmaximize', function(){
+            self.isMaximized = false;
+            maxElem.dropClass ('restore');
+        });
+        self.window.on ('resize', function (width, height){
             self.canvas.width = self.canvas.clientWidth;
             self.canvas.height = self.canvas.clientHeight;
             self.redraw();
+            self.isMaximized = false;
+            maxElem.dropClass ('restore');
         });
         self.context = self.canvas.getContext('2d');
         self.modeSelect = self.document.getElementById ('Mode');
@@ -72,8 +92,10 @@ function Visualizer (controller) {
         function bumpControls(){
             clearTimeout (controlsTimer);
             self.controlsElem.addClass ('visible');
+            self.canvas.dropClass ('nocurse');
             controlsTimer = setTimeout (function(){
                 self.controlsElem.dropClass ('visible');
+                self.canvas.addClass ('nocurse');
                 self.modeSelect.blur();
             }, CONTROLS_TIMEOUT);
         }
