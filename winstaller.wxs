@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+  <?if $(var.Platform) = x86 ?>
+    <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+  <?else ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+  <?endif ?>
+
+  <Product Id="*" Name="PornViewer" Language="1033" Version="0.0.1" Manufacturer="Schmidty's Superior Solutions" UpgradeCode="8527e354-e187-4921-8af5-de92e1004b4a" >
+    <Package InstallerVersion="200" Compressed="yes" Comments="Windows Installer Package" />
+    <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="$(var.PlatformProgramFilesFolder)">
+        <Directory Id="INSTALLDIR" Name="PornViewer">
+          <Component Id="ApplicationFiles" Guid="8527e354-e187-4921-8af5-de92e1004b4a">
+            <File Id="Executable" Source="resources\$(var.Platform)\nw.exe" />
+            <File Id="Support0" Source="resources\$(var.Platform)\d3dcompiler_47.dll" />
+            <File Id="Support1" Source="resources\$(var.Platform)\ffmpegsumo.dll" />
+            <File Id="Support2" Source="resources\$(var.Platform)\icudtl.dat" />
+            <File Id="Support3" Source="resources\$(var.Platform)\libEGL.dll" />
+            <File Id="Support4" Source="resources\$(var.Platform)\libGLESv2.dll" />
+            <File Id="Support5" Source="resources\$(var.Platform)\pdf.dll" />
+            <File Id="Support6" Source="resources\$(var.Platform)\nw.pak" />
+            <File Id="Support7" Source="resources\$(var.Platform)\nwjc.exe" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <Feature Id="DefaultFeature" Level="1">
+       <ComponentRef Id="ApplicationFiles" />
+    </Feature>
+  </Product>
+</Wix>
