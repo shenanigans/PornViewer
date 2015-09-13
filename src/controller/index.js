@@ -396,7 +396,7 @@ Controller.prototype.showImage = function (thumbElem, imgPath) {
     var thumbIndex = Array.prototype.indexOf.call (this.thumbsElem.children, thumbElem);
     if (thumbIndex < 0) // thumb not drawn
         return;
-    this.visualizer.display (imgPath);
+    this.visualizer.display (imgPath, thumbElem.getAttribute ('data-type'));
 
     // preload nearby thumbs
     var thumbCount = this.thumbsElem.children.length;

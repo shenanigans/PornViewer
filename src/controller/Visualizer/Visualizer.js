@@ -5,6 +5,7 @@ var gui = global.window.nwDispatcher.requireNwGui();
 
 */
 var CONTROLS_TIMEOUT = 1500;
+var MODE_INDEX = { normal:0, zoom:1, flood:2 };
 function Visualizer (controller) {
     this.controller = controller;
     this.isReady = false
@@ -46,6 +47,7 @@ function Visualizer (controller) {
         self.document.getElementById ('Minimize').on ('click', function(){
             self.window.minimize();
         });
+        self.dancer = self.document.getElementById ('Dancer');
         var maxElem = self.document.getElementById ('Maximize');
         maxElem.on ('click', function(){
             if (self.isMaximized)
@@ -69,13 +71,14 @@ function Visualizer (controller) {
             maxElem.dropClass ('restore');
         });
         self.context = self.canvas.getContext('2d');
+        self.context.fillStyle = 'white';
         self.modeSelect = self.document.getElementById ('Mode');
-        self.modeSelect.value = self.mode;
+        self.modeSelect.selectedIndex = MODE_INDEX[self.mode];
         self.modeSelect.on ('change', function(){
             self.mode = self.modeSelect.value;
             self.redraw();
             self.modeSelect.blur();
-            self.window.lastMode = self.mode;
+            window.localStorage.lastMode = self.mode;
         });
         self.closeElem = self.document.getElementById ('Close');
         self.closeElem.on ('click', function(){
@@ -89,13 +92,14 @@ function Visualizer (controller) {
 
         // bump controls into view whenever the mouse moves
         var controlsTimer;
+        var Theatre = self.document.getElementById ('Theatre');
         function bumpControls(){
             clearTimeout (controlsTimer);
             self.controlsElem.addClass ('visible');
-            self.canvas.dropClass ('nocurse');
+            Theatre.dropClass ('nocurse');
             controlsTimer = setTimeout (function(){
                 self.controlsElem.dropClass ('visible');
-                self.canvas.addClass ('nocurse');
+                Theatre.addClass ('nocurse');
                 self.modeSelect.blur();
             }, CONTROLS_TIMEOUT);
         }
@@ -111,17 +115,18 @@ function Visualizer (controller) {
 }
 module.exports = Visualizer;
 
-Visualizer.prototype.display = function (filepath) {
+Visualizer.prototype.display = function (filepath, type) {
     if (!filepath) return;
 
     if (!this.isReady) {
-        this.queue.push (function(){ this.display (filepath); });
+        this.queue.push (function(){ this.display (filepath, type); });
         return;
     }
 
     var self = this;
     this.loadImage (filepath, function (err, image) {
         self.activeImage = image;
+        self.activeType = type;
         self.redraw();
     });
 };
@@ -192,6 +197,8 @@ Visualizer.prototype.redraw = function(){
     var height = this.activeImage.height;
     var canvasWidth = this.canvas.width;
     var canvasHeight = this.canvas.height;
+    if (this.dancer.firstChild)
+        this.dancer.firstChild.dispose();
     this.context.clearRect (0, 0, canvasWidth, canvasHeight);
 
     if (this.mode == 'normal') {
@@ -205,12 +212,23 @@ Visualizer.prototype.redraw = function(){
             height = canvasHeight;
             width = Math.round (width * coef);
         }
+
         var top = Math.floor (( canvasHeight - height ) / 2);
         var left = Math.floor (( canvasWidth - width ) / 2);
-        this.context.drawImage (this.activeImage, left, top, width, height);
+        this.context.fillRect (left, top, width, height);
+        if (this.activeType != 'gif')
+            this.context.drawImage (this.activeImage, left, top, width, height);
+        else {
+            this.dancer.setAttribute (
+                'style',
+                'top:'+top+'px;left:'+left+'px;width:'+width+'px;height:'+height+'px;'
+            );
+            this.dancer.appendChild (this.activeImage);
+        }
         return;
     }
 
+    // zoom and flood modes
     var wideRatio = canvasWidth / width;
     var tallRatio = canvasHeight / height;
     if (wideRatio > tallRatio) {
@@ -228,8 +246,18 @@ Visualizer.prototype.redraw = function(){
         width *= 1.2;
         height *= 1.2;
     }
+
     var top = Math.floor (( canvasHeight - height ) / 2);
     var left = Math.floor (( canvasWidth - width ) / 2);
-
+    this.context.fillRect (left, top, width, height);
+    if (this.activeType != 'gif')
+        this.context.drawImage (this.activeImage, left, top, width, height);
+    else {
+        this.dancer.setAttribute (
+            'style',
+            'top:'+top+'px;left:'+left+'px;width:'+width+'px;height:'+height+'px;'
+        );
+        this.dancer.appendChild (this.activeImage);
+    }
     this.context.drawImage (this.activeImage, left, top, width, height);
 };
