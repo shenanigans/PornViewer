@@ -22,7 +22,9 @@ function Visualizer (controller) {
     this.window = gui.Window.open ('./controller/Visualizer/index.html', {
         toolbar:        false,
         frame:          false,
-        transparent:    true
+        transparent:    true,
+        title:          'PornViewer',
+        icon:           'controller/icon.png'
     });
 
     var self = this;
@@ -109,7 +111,7 @@ function Visualizer (controller) {
         // mark ready and clear queue
         self.isReady = true;
         for (var i=0,j=self.queue.length; i<j; i++)
-            self.queue.call (this);
+            self.queue[i].call (self);
         delete self.queue;
     });
 }

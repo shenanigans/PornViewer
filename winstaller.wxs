@@ -8,14 +8,18 @@
   <?endif ?>
 
   <Product Id="*" Name="PornViewer" Language="1033" Version="0.0.1" Manufacturer="Schmidty's Superior Solutions" UpgradeCode="8527e354-e187-4921-8af5-de92e1004b4a" >
-    <Package InstallerVersion="200" Compressed="yes" Comments="Windows Installer Package" />
+    <Package InstallerVersion="200" InstallScope="perMachine" Compressed="yes" Comments="Windows Installer Package" />
     <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
+    <Icon Id="ProductIcon" SourceFile="icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon"/>
+    <UIRef Id="WixUI_FeatureTree" />
+    <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="$(var.PlatformProgramFilesFolder)">
         <Directory Id="INSTALLDIR" Name="PornViewer">
           <Component Id="ApplicationFiles" Guid="8527e354-e187-4921-8af5-de92e1004b4a">
-            <File Id="Executable" Source="resources\$(var.Platform)\nw.exe" />
+            <File Id="Executable" Source="build\$(var.Platform)\nw.exe" Vital="yes" KeyPath="yes" />
             <File Id="Support0" Source="resources\$(var.Platform)\d3dcompiler_47.dll" />
             <File Id="Support1" Source="resources\$(var.Platform)\ffmpegsumo.dll" />
             <File Id="Support2" Source="resources\$(var.Platform)\icudtl.dat" />
@@ -25,12 +29,69 @@
             <File Id="Support6" Source="resources\$(var.Platform)\nw.pak" />
             <File Id="Support7" Source="resources\$(var.Platform)\nwjc.exe" />
           </Component>
+          <Component Id="JpgAssociation" Guid="11f4eca4-f2b7-4a1d-b6a2-2a45280a5e9c">
+            <CreateFolder />
+            <ProgId Id="jpgType" Description="jpg images" Icon="Executable">
+              <Extension Id='jpg' ContentType='image/jpg'>
+                <Verb Id='open' TargetFile="Executable" Command='Open' Argument='"%1"' />
+              </Extension>
+            </ProgId>
+            <ProgId Id='jpegType' Description='jpeg images' Icon="Executable">
+              <Extension Id='jpeg' ContentType='image/jpeg'>
+                <Verb Id='open' TargetFile="Executable" Command='Open' Argument='"%1"' />
+              </Extension>
+            </ProgId>
+          </Component>
+          <Component Id="GifAssociation" Guid="f0d9214a-b06c-4bea-b71e-ba0d6c8c2a36">
+            <CreateFolder />
+            <File Name="gifDummy" Source="icon.ico" KeyPath="yes" />
+            <ProgId Id='gifType' Description='gif images' Icon="Executable">
+              <Extension Id='gif' ContentType='image/gif'>
+                <Verb Id='open' TargetFile="Executable" Command='Open' Argument='"%1"' />
+              </Extension>
+            </ProgId>
+          </Component>
+          <Component Id="PngAssociation" Guid="fce019b8-5b96-4280-adf0-5bab8d975166">
+            <CreateFolder />
+            <File Name="pngDummy" Source="icon.ico" KeyPath="yes" />
+            <ProgId Id='pngType' Description='png images' Icon="Executable">
+              <Extension Id='png' ContentType='image/png'>
+                <Verb Id='open' TargetFile="Executable" Command='Open' Argument='"%1"' />
+              </Extension>
+            </ProgId>
+          </Component>
         </Directory>
       </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ProgramMenuSubfolder" Name="PornViewer">
+          <Component Id="ApplicationShortcuts" Guid="0093168f-dbc1-430e-b63f-570a01356f3c">
+            <Shortcut Id="ApplicationShortcut1" Name="PornViewer 0.0.1" Description="View Some Porn" Target="[INSTALLDIR]nw.exe" WorkingDirectory="INSTALLDIR" Icon="ProductIcon" />
+            <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\ShellNoRoam\MUICache" Name="[$(var.PlatformProgramFilesFolder)]PornViewer\nw.exe.FriendlyAppName" Value="PornViewer" Type="string" KeyPath="yes" />
+            <RegistryValue Root="HKCU" Key="Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache" Name="[$(var.PlatformProgramFilesFolder)]PornViewer\nw.exe.FriendlyAppName" Value="PornViewer" Type="string"/>
+            <RemoveFolder Id="ProgramMenuSubfolder" On="uninstall" />
+          </Component>
+        </Directory>
+     </Directory>
     </Directory>
-
-    <Feature Id="DefaultFeature" Level="1">
-       <ComponentRef Id="ApplicationFiles" />
+    <Feature Id="Complete" Title="PornViewer 0.0.1" Description="The complete package." Display="expand" Level="1" ConfigurableDirectory="INSTALLDIR">
+      <ComponentRef Id="ApplicationFiles" />
+      <Feature Id="StartMenuFeature" Level="1" Title="Start Menu shortcuts" Description="Add PornViewer to the Start Menu" AllowAdvertise="no" InstallDefault="local">
+        <ComponentRef Id="ApplicationShortcuts" />
+      </Feature>
+      <Feature Id="FiletypesFeature" Level="1" Title="File Associations" Description="Open image files with PornViewer" Display="expand" AllowAdvertise="no" InstallDefault="local">
+        <Feature Id="JpgTypesFeature" Level="1" Title="*.jpg and *.jpeg" Description="Open JPEG images with PornViewer" AllowAdvertise="no" InstallDefault="local">
+          <ComponentRef Id="ApplicationFiles" />
+          <ComponentRef Id="JpgAssociation" />
+        </Feature>
+        <Feature Id="GifTypesFeature" Level="1" Title="*.gif" Description="Open GIF images with PornViewer" AllowAdvertise="no" InstallDefault="local">
+          <ComponentRef Id="ApplicationFiles" />
+          <ComponentRef Id="GifAssociation" />
+        </Feature>
+        <Feature Id="PngTypesFeature" Level="1" Title="*.png" Description="Open PNG images with PornViewer" AllowAdvertise="no" InstallDefault="local">
+          <ComponentRef Id="ApplicationFiles" />
+          <ComponentRef Id="PngAssociation" />
+        </Feature>
+      </Feature>
     </Feature>
   </Product>
 </Wix>

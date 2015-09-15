@@ -16,22 +16,11 @@ require ('scum') (window);
 window.on ('load', function(){
     var Window = gui.Window.get();
     Window.show();
-
-    var InfoElem = document.getElementById ('Info');
-    var VersionElem = document.createElement ('h2');
-    VersionElem.setText (package.version);
-    InfoElem.append (VersionElem);
-    InfoElem.addClass ('revealed');
-
-    setTimeout (function(){
-        document.getElementById ('Splash').addClass ('hidden');
-    }, 1000);
-
     baseController = new Controller (Window);
 });
 
 var DRIVE_REGEX = /([\w ]+\w)  +(\w:)/;
-function Controller (winnder, hostElem) {
+function Controller (winnder) {
     this.window = winnder;
     winnder.controller = this;
     this.document = winnder.window.document;
@@ -115,8 +104,8 @@ function Controller (winnder, hostElem) {
 
     // load opened file or last path
     var filename;
-    if (gui.App.argv.length > 1) {
-        var openPath = gui.App.argv[1];
+    if (gui.App.argv.length) {
+        var openPath = gui.App.argv[0];
         // exists? directory?
         try {
             var stats = fs.statSync (openPath);
@@ -145,9 +134,14 @@ function Controller (winnder, hostElem) {
     // wait for future file open operations
     function openFile (cmdline) {
         // exists? directory?
+        console.log (cmdline);
         var filename;
         try {
-            var openPath = cmdline.split (/ /g)[1];
+            var openPath;
+            if (process.platform == 'win32')
+                openPath = /"([^"]+)"$/.exec (cmdline)[1];
+            else
+                openPath = cmdline.split (/ /g)[1];
             var stats = fs.statSync (openPath);
             if (stats.isDirectory())
                 self.currentPath = openPath;
