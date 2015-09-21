@@ -225,7 +225,10 @@ body {
 }
 
 .thumb:empty {
-    box-shadow: inset 0 0 0.5em #FFB8FC;
+    background-image: url('icon.png');
+    background-size: 60%;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .thumb img {

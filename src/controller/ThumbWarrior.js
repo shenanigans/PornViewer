@@ -13,7 +13,7 @@ var getType = require ('image-type');
 var dbReady = false, dbQueue = [];
 var db = window.openDatabase ('pornviewer', '', 'image info', 10000 * 1024);
 db.changeVersion (db.version, "1.2", function (tx) {
-    tx.executeSql ('CREATE TABLE IF NOT EXISTS images (id unique, directory, filename, thumbnail, pad, type, size, created, Primary Key (id))');
+    tx.executeSql ('CREATE TABLE IF NOT EXISTS images (id unique, directory, filename, thumbnail, pad, type, size, created, modified, Primary Key (id))');
     tx.executeSql ('CREATE UNIQUE INDEX IF NOT EXISTS directory ON images (directory, filename)');
     // tx.executeSql ('CREATE TABLE metadata (image, key, value, Foreign Key (image))');
     // tx.executeSql ('CREATE INDEX image ON metadata (image)');
@@ -74,7 +74,7 @@ module.exports.getThumb = function (dirpath, filename, callback) {
                         var row = results.rows.item(0);
                         thumbPath = row.thumbnail;
                         pad = row.pad;
-                        stats = { type:row.type, size:row.size, created:row.created };
+                        stats = { type:row.type, size:row.size, created:row.created, modified:row.modified };
                         callback();
                     }
                 );
@@ -101,8 +101,8 @@ module.exports.getThumb = function (dirpath, filename, callback) {
                     pad = Math.floor ((THUMB_SIZE - finalHeight) / 2);
                 db.transaction (function (tx) {
                     tx.executeSql (
-                        'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type, size, created) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        [ dirpath, filename, newThumbPath, pad, imageType.ext, stats.size, stats.created ]
+                        'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type, size, created, modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [ dirpath, filename, newThumbPath, pad, imageType.ext, stats.size, stats.created, stats.modified ]
                     );
                 });
                 callback (undefined, 'file://' + newThumbPath, pad, stats);
@@ -171,6 +171,7 @@ module.exports.getThumb = function (dirpath, filename, callback) {
                         return callback (err);
                     stats.size = filestats.size;
                     stats.created = filestats.ctime.getTime();
+                    stats.modified = filestats.mtime.getTime();
                     callback();
                 });
             }

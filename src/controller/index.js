@@ -91,15 +91,26 @@ function Controller (winnder) {
                     return 1;
             else if (bVal === null)
                 return -1;
-            if (self.sortBy != 'name') {
-                aVal = Number (aVal);
-                bVal = Number (bVal);
+            if (self.sortBy == 'name') {
+                if (aVal > bVal)
+                    return 1;
+                if (aVal == bVal)
+                    return 0;
+                return -1;
             }
+
+            aVal = Number (aVal);
+            bVal = Number (bVal);
             if (aVal > bVal)
-                return 1;
+                return -1;
             if (aVal == bVal)
                 return 0;
-            return -1;
+            return 1;
+            // if (aVal < bVal)
+            //     return -1;
+            // if (aVal == bVal)
+            //     return 0;
+            // return 1;
         });
         for (var i=0,j=potemkin.length; i<j; i++)
             self.thumbsElem.appendChild (potemkin[i]);
@@ -279,6 +290,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 listed (err);
             return;
         }
+        filenames.sort();
         var imageNames = [];
         var imageElems = [];
         filenames.forEach (function (fname) {
@@ -332,6 +344,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 container.setAttribute ('data-type', stats.type);
                 container.setAttribute ('data-size', stats.size);
                 container.setAttribute ('data-created', stats.created);
+                container.setAttribute ('data-modified', stats.modified);
 
                 var newThumb = self.document.createElement ('img');
                 newThumb.setAttribute ('src', thumbPath);
@@ -342,32 +355,45 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 // sorting
                 if (self.sortBy == 'name')
                     return callback();
+                container.dispose();
                 var attr = 'data-'+self.sortBy;
                 var value = stats[self.sortBy];
                 var thumbs = self.thumbsElem.children;
                 var other = thumbs[0].getAttribute (attr);
-                if (other === null || other >= value) {
+                if (other === null || Number (other) <= value) {
+                    console.log ('prepend', value);
                     self.thumbsElem.insertBefore (container, thumbs[0]);
                     return callback();
                 }
+                other = thumbs[thumbs.length-1].getAttribute (attr);
+                if (other !== null && Number (other) >= value) {
+                    console.log ('append', value, other);
+                    self.thumbsElem.appendChild (container);
+                    return callback();
+                }
                 var middle = thumbs.length / 2;
-                var step = middle;
-                while (true) {
-                    step /= 2;
-                    var i = Math.floor (middle);
+                var step = middle / 2;
+                var next = Math.floor (middle);
+                var i;
+                do {
+                    i = next;
                     other = thumbs[i].getAttribute (attr);
                     if (other === null)
-                        middle -= step;
-                    else if (other >= value) {
+                        next = Math.floor (middle -= step);
+                    else if (other <= value) {
                         var prior = thumbs[i-1].getAttribute (attr);
-                        if (prior === null || prior <= value) {
+                        if (prior === null || prior >= value) {
+                            console.log ('insert at', value, '->', thumbs[i-1].getAttribute (attr), thumbs[i].getAttribute (attr));
                             self.thumbsElem.insertBefore (container, thumbs[i]);
                             return callback();
                         } else
-                            middle -= step;
+                            next = Math.floor (middle -= step);
                     } else
-                        middle += step;
-                }
+                        next = Math.floor (middle += step);
+                    step /= 2;
+                } while (i != next);
+                console.log ('fall through', value, '->', thumbs[i].getAttribute (attr), thumbs[i+1].getAttribute (attr))
+                self.thumbsElem.insertBefore (container, thumbs[i+1]);
                 callback();
             });
         }, function(){
