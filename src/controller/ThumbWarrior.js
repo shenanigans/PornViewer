@@ -21,7 +21,6 @@ db.changeVersion (db.version, "1.2", function (tx) {
     // database failure
     console.log ('db failed', err);
 }, function(){
-    console.log ('READY', db.version);
     dbReady = true;
     for (var i=0,j=dbQueue.length; i<j; i++)
         dbQueue[i]();

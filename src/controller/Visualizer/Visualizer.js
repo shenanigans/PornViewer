@@ -26,6 +26,7 @@ function Visualizer (controller) {
         title:          'PornViewer',
         icon:           'controller/icon.png'
     });
+    controller.window.focus();
 
     var self = this;
     this.window.on ('loaded', function(){

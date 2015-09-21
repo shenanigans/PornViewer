@@ -54,7 +54,6 @@ module.exports = Directory;
 
 Directory.prototype.addChild = function (name) {
     if (Object.hasOwnProperty.call (this.children, name)) {
-        console.log ('add existing', this.name, name);
         this.controller.revealDirectory();
         return this.children[name];
     }
@@ -64,7 +63,6 @@ Directory.prototype.addChild = function (name) {
         path.join (this.dirpath, name),
         name
     );
-    console.log ('add new', this.name, name);
     this.controller.revealDirectory();
     return child;
 };
@@ -75,7 +73,6 @@ Directory.prototype.open = function(){
     this.isOpen = true;
     this.elem.addClass ('open');
     this.directoryImg.setAttribute ('src', 'controller/directory_open.png');
-    console.log ('opened');
     this.controller.revealDirectory();
 
     var self = this;

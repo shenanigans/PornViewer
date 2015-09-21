@@ -13,7 +13,9 @@ var document = window.document;
 var WarriorElem, warriors, nextWarrior = 0;
 var baseController;
 require ('scum') (window);
+SHOW_EXT = { jpg:'jpg', jpeg:'jpg', gif:'gif', png:'png' };
 window.on ('load', function(){
+    gui.Screen.Init();
     var Window = gui.Window.get();
     Window.show();
     baseController = new Controller (Window);
@@ -25,6 +27,13 @@ function Controller (winnder) {
     winnder.controller = this;
     this.document = winnder.window.document;
     this.hostElem = this.document.getElementById ('Host');
+
+    // create visualizer
+    var visualizer = this.visualizer = new Visualizer (this);
+    winnder.on ('close', function(){
+        winnder.close (true);
+        visualizer.window.close();
+    });
 
     // keyboard navigation events
     var self = this;
@@ -96,16 +105,15 @@ function Controller (winnder) {
             self.thumbsElem.appendChild (potemkin[i]);
     });
 
-
     // set up Tree Element
     this.treeTop = this.document.getElementById ('Bar').getBoundingClientRect().bottom;
     this.treeElem = this.document.getElementById ('Tree');
     this.root = { children:{}, childrenElem:this.treeElem };
 
     // load opened file or last path
-    var filename;
+    var openPath;
     if (gui.App.argv.length) {
-        var openPath = gui.App.argv[0];
+        openPath = gui.App.argv[0];
         // exists? directory?
         try {
             var stats = fs.statSync (openPath);
@@ -114,7 +122,11 @@ function Controller (winnder) {
             else {
                 var pathinfo = path.parse (openPath);
                 self.currentPath = pathinfo.dir;
-                filename = pathinfo.base;
+                var ext = pathinfo.ext.slice(1);
+                if (Object.hasOwnProperty.call (SHOW_EXT, ext)) {
+                    self.selectedImagePath = openPath;
+                    self.visualizer.display (openPath, ext);
+                }
             }
         } catch (err) { /* fall through */ }
     }
@@ -127,14 +139,13 @@ function Controller (winnder) {
     this.openCurrent (function (err) {
         if (err)
             return;
-        if (filename)
-            self.showImage (undefined, path.join (self.currentPath, filename));
+        if (openPath)
+            self.showImage (undefined, openPath);
     });
 
     // wait for future file open operations
     function openFile (cmdline) {
         // exists? directory?
-        console.log (cmdline);
         var filename;
         try {
             var openPath;
@@ -148,15 +159,18 @@ function Controller (winnder) {
             else {
                 var pathinfo = path.parse (openPath);
                 self.currentPath = pathinfo.dir;
-                filename = pathinfo.base;
+                var ext = pathinfo.ext.slice(1);
+                if (Object.hasOwnProperty.call (SHOW_EXT, ext)) {
+                    self.selectedImagePath = openPath;
+                    self.visualizer.display (openPath, SHOW_EXT[ext]);
+                }
             }
         } catch (err) { console.log (err); return false; }
 
         self.openCurrent(function (err) {
             if (err)
                 return;
-            if (filename)
-                self.showImage (undefined, openPath);
+            self.showImage (undefined, openPath);
         });
 
         return false;
@@ -173,14 +187,6 @@ function Controller (winnder) {
             return false;
         openFile ('PornViewer '+files[files.length-1].path);
         return false;
-    });
-
-    // create visualizer
-    var visualizer = this.visualizer = new Visualizer (this);
-    var nwWindow = gui.Window.get (winnder);
-    nwWindow.on ('close', function(){
-        nwWindow.close (true);
-        visualizer.window.close();
     });
 
     // on windows we need to enumerate the drives
@@ -373,12 +379,14 @@ Controller.prototype.select = function (dirpath, elem, listed) {
 Controller.prototype.showImage = function (thumbElem, imgPath) {
     if (this.selectedImage)
         this.selectedImage.dropClass ('selected');
+    var thumbIndex;
     if (!thumbElem) {
         // search for thumbElem
         var done = false;
         for (var i=0,j=this.thumbsElem.children.length; i<j; i++)
             if (( thumbElem = this.thumbsElem.children[i] ).getAttribute ('data-path') == imgPath) {
                 done = true;
+                thumbIndex = i;
                 break;
             }
         if (!done)
@@ -387,25 +395,10 @@ Controller.prototype.showImage = function (thumbElem, imgPath) {
     thumbElem.addClass ('selected');
     this.selectedImage = thumbElem;
 
-    var thumbIndex = Array.prototype.indexOf.call (this.thumbsElem.children, thumbElem);
+    if (thumbIndex === undefined)
+        thumbIndex = Array.prototype.indexOf.call (this.thumbsElem.children, thumbElem);
     if (thumbIndex < 0) // thumb not drawn
         return;
-    this.visualizer.display (imgPath, thumbElem.getAttribute ('data-type'));
-
-    // preload nearby thumbs
-    var thumbCount = this.thumbsElem.children.length;
-    if (thumbCount >= 3) {
-        if (thumbIndex > 0)
-            this.visualizer.preload (this.thumbsElem.children[thumbIndex-1].getAttribute ('data-path'));
-        if (thumbIndex + 1 < this.thumbsElem.children.length)
-            this.visualizer.preload (this.thumbsElem.children[thumbIndex+1].getAttribute ('data-path'));
-        var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
-        if (thumbCount >= rowWidth) {
-            this.visualizer.preload (this.lookUp().getAttribute ('data-path'));
-            if (thumbCount > 2 * rowWidth)
-                this.visualizer.preload (this.lookDown().getAttribute ('data-path'));
-        }
-    }
 
     // scroll to view
     var position = thumbElem.getBoundingClientRect();
@@ -415,6 +408,30 @@ Controller.prototype.showImage = function (thumbElem, imgPath) {
     else if (position.bottom > this.window.window.innerHeight)
         offset = position.bottom - this.window.window.innerHeight;
     this.thumbsElem.scrollTop += offset;
+
+    if (this.selectedImagePath == imgPath)
+        return;
+    this.selectedImagePath = imgPath;
+    this.visualizer.display (imgPath, thumbElem.getAttribute ('data-type'));
+
+    // preload nearby thumbs
+    clearTimeout (this.preloadJob);
+    var self = this;
+    this.preloadJob = setTimeout (function(){
+        var thumbCount = self.thumbsElem.children.length;
+        if (thumbCount >= 3) {
+            if (thumbIndex > 0)
+                self.visualizer.preload (self.thumbsElem.children[thumbIndex-1].getAttribute ('data-path'));
+            if (thumbIndex + 1 < self.thumbsElem.children.length)
+                self.visualizer.preload (self.thumbsElem.children[thumbIndex+1].getAttribute ('data-path'));
+            var rowWidth = Math.floor (self.thumbsElem.clientWidth / self.selectedImage.clientWidth);
+            if (thumbCount >= rowWidth) {
+                self.visualizer.preload (self.lookUp().getAttribute ('data-path'));
+                if (thumbCount > 2 * rowWidth)
+                    self.visualizer.preload (self.lookDown().getAttribute ('data-path'));
+            }
+        }
+    }, 50);
 };
 
 Controller.prototype.lookUp = function(){
