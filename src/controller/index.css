@@ -7,6 +7,7 @@ html {
 body {
     height: 100%;
     margin: 0;
+    background-color: rgba(255, 255, 255, 0.92);
 }
 
 #Bar {
@@ -42,18 +43,18 @@ body {
 }
 
 #Minimize {
-    background-image: url('minimize.png');
+    background-image: url('../minimize.png');
 }
 
 #Maximize {
-    background-image: url('maximize.png');
+    background-image: url('../maximize.png');
 }
 #Maximize.restore {
-    background-image: url('restore.png');
+    background-image: url('../restore.png');
 }
 
 #Close {
-    background-image: url('close.png');
+    background-image: url('../close.png');
 }
 
 #Close:hover {
@@ -67,7 +68,7 @@ body {
     right: 0;
     bottom: 0;
     left: 0;
-    background-image: url('dickbutt.png');
+    background-image: url('../dickbutt.png');
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
@@ -225,7 +226,7 @@ body {
 }
 
 .thumb:empty {
-    background-image: url('icon.png');
+    background-image: url('../icon.png');
     background-size: 60%;
     background-position: center;
     background-repeat: no-repeat;

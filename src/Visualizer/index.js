@@ -1,15 +1,16 @@
 
-var gui = global.window.nwDispatcher.requireNwGui();
+var path = require ('path');
 
 /**     @module/class PornViewer:Visualizer
 
 */
 var CONTROLS_TIMEOUT = 1500;
 var MODE_INDEX = { normal:0, zoom:1, flood:2 };
-function Visualizer (controller) {
-    this.controller = controller;
-    this.isReady = false
-    this.queue = [ ]; // stores callbacks until page is ready
+function Visualizer (winnder, console) {
+    this.window = winnder;
+    this.document = winnder.window.document;
+    this.console = console;
+
     this.readyImages = {}; // images ready to display
     this.loadingImages = {};
     this.imageList = [];
@@ -18,113 +19,76 @@ function Visualizer (controller) {
     if (!this.mode)
         this.mode = window.localStorage.lastMode = 'normal';
 
-    // launch the Visualizer Window
-    this.window = gui.Window.open ('./controller/Visualizer/index.html', {
-        toolbar:        false,
-        frame:          false,
-        transparent:    true,
-        title:          'PornViewer',
-        icon:           'controller/icon.png'
-    });
-    controller.window.focus();
-
     var self = this;
-    this.window.on ('loaded', function(){
-        // civilize the natives
-        var window = self.window.window;
-        require ('scum') (window);
-        self.document = window.document;
 
-        // keyboard navigation events
-        self.document.body.on ('keydown', function (event) {
-            if (event.keyCode < 37 || event.keyCode > 40)
-                return;
-            self.controller.go (event.keyCode);
-        });
-
-        // set up our DOM presence
-        self.controlsElem = self.document.getElementById ('Controls');
-        self.canvas = self.document.getElementById ('Display');
+    // set up our DOM presence
+    this.controlsElem = this.document.getElementById ('Controls');
+    this.canvas = this.document.getElementById ('Display');
+    this.console.log (this.document.body);
+    this.canvas.width = this.canvas.clientWidth;
+    this.canvas.height = this.canvas.clientHeight;
+    this.document.getElementById ('Minimize').on ('click', function(){
+        self.console.log ('from Visualizer');
+        self.window.minimize();
+    });
+    this.dancer = this.document.getElementById ('Dancer');
+    var maxElem = this.document.getElementById ('Maximize');
+    maxElem.on ('click', function(){
+        if (self.isMaximized)
+            self.window.unmaximize();
+        else
+            self.window.maximize();
+    });
+    this.window.on ('maximize', function(){
+        self.isMaximized = true;
+        maxElem.addClass ('restore');
+    });
+    this.window.on ('unmaximize', function(){
+        self.isMaximized = false;
+        maxElem.dropClass ('restore');
+    });
+    this.window.on ('resize', function (width, height){
         self.canvas.width = self.canvas.clientWidth;
         self.canvas.height = self.canvas.clientHeight;
-        self.document.getElementById ('Minimize').on ('click', function(){
-            self.window.minimize();
-        });
-        self.dancer = self.document.getElementById ('Dancer');
-        var maxElem = self.document.getElementById ('Maximize');
-        maxElem.on ('click', function(){
-            if (self.isMaximized)
-                self.window.unmaximize();
-            else
-                self.window.maximize();
-        });
-        self.window.on ('maximize', function(){
-            self.isMaximized = true;
-            maxElem.addClass ('restore');
-        });
-        self.window.on ('unmaximize', function(){
-            self.isMaximized = false;
-            maxElem.dropClass ('restore');
-        });
-        self.window.on ('resize', function (width, height){
-            self.canvas.width = self.canvas.clientWidth;
-            self.canvas.height = self.canvas.clientHeight;
-            self.redraw();
-            self.isMaximized = false;
-            maxElem.dropClass ('restore');
-        });
-        self.context = self.canvas.getContext('2d');
-        self.context.fillStyle = 'white';
-        self.modeSelect = self.document.getElementById ('Mode');
-        self.modeSelect.selectedIndex = MODE_INDEX[self.mode];
-        self.modeSelect.on ('change', function(){
-            self.mode = self.modeSelect.value;
-            self.redraw();
-            self.modeSelect.blur();
-            window.localStorage.lastMode = self.mode;
-        });
-        self.closeElem = self.document.getElementById ('Close');
-        self.closeElem.on ('click', function(){
-            self.window.close (true);
-            self.controller.window.close (true);
-        });
-        self.window.on ('close', function(){
-            self.window.close (true);
-            self.controller.window.close (true);
-        });
-
-        // bump controls into view whenever the mouse moves
-        var controlsTimer;
-        var Theatre = self.document.getElementById ('Theatre');
-        function bumpControls(){
-            clearTimeout (controlsTimer);
-            self.controlsElem.addClass ('visible');
-            Theatre.dropClass ('nocurse');
-            controlsTimer = setTimeout (function(){
-                self.controlsElem.dropClass ('visible');
-                Theatre.addClass ('nocurse');
-                self.modeSelect.blur();
-            }, CONTROLS_TIMEOUT);
-        }
-        window.document.body.on ('mousemove', bumpControls);
-        self.controlsElem.on ('mousemove', bumpControls);
-
-        // mark ready and clear queue
-        self.isReady = true;
-        for (var i=0,j=self.queue.length; i<j; i++)
-            self.queue[i].call (self);
-        delete self.queue;
+        self.redraw();
+        self.isMaximized = false;
+        maxElem.dropClass ('restore');
     });
+    this.context = this.canvas.getContext('2d');
+    this.context.fillStyle = 'white';
+    this.modeSelect = this.document.getElementById ('Mode');
+    this.modeSelect.selectedIndex = MODE_INDEX[this.mode];
+    this.modeSelect.on ('change', function(){
+        self.mode = self.modeSelect.value;
+        self.redraw();
+        self.modeSelect.blur();
+        window.localStorage.lastMode = self.mode;
+    });
+    this.closeElem = this.document.getElementById ('Close');
+    this.closeElem.on ('click', function(){
+        self.window.close();
+    });
+
+    // bump controls into view whenever the mouse moves
+    var controlsTimer;
+    var Theatre = this.document.getElementById ('Theatre');
+    function bumpControls(){
+        clearTimeout (controlsTimer);
+        self.controlsElem.addClass ('visible');
+        Theatre.dropClass ('nocurse');
+        controlsTimer = setTimeout (function(){
+            self.controlsElem.dropClass ('visible');
+            Theatre.addClass ('nocurse');
+            self.modeSelect.blur();
+        }, CONTROLS_TIMEOUT);
+    }
+    this.document.body.on ('mousemove', bumpControls);
+    this.controlsElem.on ('mousemove', bumpControls);
 }
 module.exports = Visualizer;
 
 Visualizer.prototype.display = function (filepath, type) {
     if (!filepath) return;
-
-    if (!this.isReady) {
-        this.queue.push (function(){ this.display (filepath, type); });
-        return;
-    }
 
     var self = this;
     this.loadImage (filepath, function (err, image) {
@@ -136,11 +100,6 @@ Visualizer.prototype.display = function (filepath, type) {
 
 Visualizer.prototype.preload = function (filepath) {
     if (!filepath) return;
-
-    if (!this.isReady) {
-        this.queue.push (function(){ this.preload (filepath); });
-        return;
-    }
 
     var self = this;
     this.loadImage (filepath);

@@ -13,10 +13,7 @@
     "lwip": "^0.0.7"
   },
   "window": {
-    "position": "mouse",
-    "title": "PornController",
-    "icon": "controller/icon.png",
-    "toolbar": false,
-    "frame": false
+    "title": "PornMaster",
+    "icon": "icon.png"
   }
 }

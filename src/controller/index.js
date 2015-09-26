@@ -2,42 +2,22 @@
 var fs = require ('fs');
 var path = require ('path');
 var async = require ('async');
-var package = require ('./package');
-var ThumbWarrior = require ('./controller/ThumbWarrior');
-var Visualizer = require ('./controller/Visualizer/Visualizer.js');
-var gui = require('nw.gui');
+var ThumbWarrior = require ('./ThumbWarrior');
 // var Collection = require ('./Collection');
-var Directory = require ('./controller/Directory');
-
-var document = window.document;
-var WarriorElem, warriors, nextWarrior = 0;
-var baseController;
-require ('scum') (window);
-SHOW_EXT = { jpg:'jpg', jpeg:'jpg', gif:'gif', png:'png' };
-window.on ('load', function(){
-    gui.Screen.Init();
-    var Window = gui.Window.get();
-    Window.show();
-    baseController = new Controller (Window);
-});
+var Directory = require ('./Directory');
 
 var DRIVE_REGEX = /([\w ]+\w)  +(\w:)/;
-function Controller (winnder) {
+function Controller (winnder, visualizer, console) {
     this.window = winnder;
-    winnder.controller = this;
     this.document = winnder.window.document;
-    this.hostElem = this.document.getElementById ('Host');
-
-    // create visualizer
-    var visualizer = this.visualizer = new Visualizer (this);
-    winnder.on ('close', function(){
-        winnder.close (true);
-        visualizer.window.close();
-    });
+    this.console = console;
+    this.visualizer = visualizer;
 
     // keyboard navigation events
+    this.hostElem = this.document.getElementById ('Host');
     var self = this;
     this.document.body.on ('keydown', function (event) {
+        self.console.log ('from Controller');
         if (event.keyCode < 37 || event.keyCode > 40)
             return true;
         self.go (event.keyCode);
@@ -116,92 +96,13 @@ function Controller (winnder) {
     this.treeElem = this.document.getElementById ('Tree');
     this.root = { children:{}, childrenElem:this.treeElem };
 
-    // load opened file or last path
-    var openPath;
-    if (gui.App.argv.length) {
-        openPath = gui.App.argv[0];
-        // exists? directory?
-        try {
-            var stats = fs.statSync (openPath);
-            if (stats.isDirectory())
-                this.currentPath = openPath;
-            else {
-                var pathinfo = path.parse (openPath);
-                self.currentPath = pathinfo.dir;
-                var ext = pathinfo.ext.slice(1);
-                if (Object.hasOwnProperty.call (SHOW_EXT, ext)) {
-                    self.selectedImagePath = openPath;
-                    self.visualizer.display (openPath, ext);
-                }
-            }
-        } catch (err) { /* fall through */ }
-    }
-    if (!this.currentPath && !(this.currentPath = window.localStorage.lastPath))
-        this.currentPath = window.localStorage.lastPath = process.env[
-            process.platform = 'win32' ? 'USERPROFILE' : 'HOME'
-        ];
-
-    // reveal path
-    this.openCurrent (function (err) {
-        if (err)
-            return;
-        if (openPath)
-            self.showImage (undefined, openPath);
-    });
-
-    // wait for future file open operations
-    function openFile (cmdline) {
-        // exists? directory?
-        var filename;
-        try {
-            var openPath;
-            if (process.platform == 'win32')
-                openPath = /"([^"]+)"$/.exec (cmdline)[1];
-            else
-                openPath = cmdline.split (/ /g)[1];
-            var stats = fs.statSync (openPath);
-            if (stats.isDirectory())
-                self.currentPath = openPath;
-            else {
-                var pathinfo = path.parse (openPath);
-                self.currentPath = pathinfo.dir;
-                var ext = pathinfo.ext.slice(1);
-                if (Object.hasOwnProperty.call (SHOW_EXT, ext)) {
-                    self.selectedImagePath = openPath;
-                    self.visualizer.display (openPath, SHOW_EXT[ext]);
-                }
-            }
-        } catch (err) { console.log (err); return false; }
-
-        self.openCurrent(function (err) {
-            if (err)
-                return;
-            self.showImage (undefined, openPath);
-        });
-
-        return false;
-    }
-    gui.App.on ('open', openFile);
-    this.window.on ('dragover', function (event) {
-        event.preventDefault();
-        return false;
-    });
-    this.window.on ('drop', function (event) {
-        event.preventDefault();
-        var files = event.dataTransfer.files;
-        if (!files.length)
-            return false;
-        openFile ('PornViewer '+files[files.length-1].path);
-        return false;
-    });
-
     // on windows we need to enumerate the drives
     if (process.platform == 'win32')
         require('child_process').exec (
             'wmic logicaldisk get description, deviceid',
             function (err, stdout, stderr) {
                 if (err) {
-                    console.log ('failed to enumerate drives', err);
+                    self.console.log ('failed to enumerate drives', err);
                     return;
                 }
                 driveinfo = stdout.split (/\r\n?/g).slice (1).filter (Boolean).map (function (drive) {
@@ -220,6 +121,7 @@ function Controller (winnder) {
             }
         );
 }
+module.exports = Controller;
 
 Controller.prototype.revealDirectory = function(){
     clearTimeout (this.revealTimeout);
@@ -319,7 +221,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                     return callback (new Error ('cancelled'));
                 var container = imageElems[imageI];
                 if (err) {
-                    console.log ('thumbnail failed', imageNames[imageI], err);
+                    self.console.log ('thumbnail failed', imageNames[imageI], err);
                     container.dispose();
                     if (container === self.selectedImage) {
                         if (container.nextSibling)

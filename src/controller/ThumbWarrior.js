@@ -7,6 +7,8 @@ var async = require ('async');
 var mkdirp = require ('mkdirp');
 var getType = require ('image-type');
 
+var gui = global.window.nwDispatcher.requireNwGui();
+
 /**     @module PornViewer:ThumbWarrior
 
 */
@@ -35,15 +37,16 @@ var ZOOM_INTO_MAX = 4 / 3;
 var MAX_CLIP = 0.20;
 var THUMB_SIZE = 150;
 var CWD = process.cwd();
-var THUMBS_DIR = path.join (
-    process.env.LOCALAPPDATA || (
-        process.platform == 'darwin' ?
-            process.env.HOME + 'Library/Preference'
-          : '/var/local'
-    ),
-    'PornViewer',
-    'thumbs'
-);
+var THUMBS_DIR = path.join (gui.App.dataPath, 'thumbs');
+// var THUMBS_DIR = path.join (
+//     process.env.LOCALAPPDATA || (
+//         process.platform == 'darwin' ?
+//             process.env.HOME + 'Library/Preference'
+//           : '/var/local'
+//     ),
+//     'PornViewer',
+//     'thumbs'
+// );
 mkdirp.sync (THUMBS_DIR);
 
 module.exports.getThumb = function (dirpath, filename, callback) {
@@ -130,6 +133,7 @@ module.exports.getThumb = function (dirpath, filename, callback) {
 
                         if (width == height)
                             return srcImage.resize (150, 150, function (err, image) {
+                                // console.log ('basic resize', err, image);
                                 if (err)
                                     return callback (err);
                                 finalImage = image;
@@ -157,6 +161,7 @@ module.exports.getThumb = function (dirpath, filename, callback) {
                          .scale (scale)
                          ;
                         batch.exec (function (err, image) {
+                            // console.log ('batch resize', err, image);
                             if (err)
                                 return callback (err);
                             finalImage = image;

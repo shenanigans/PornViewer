@@ -18,7 +18,7 @@ function Directory (parent, controller, dirpath, name, extraName) {
     this.elem.setAttribute ('class', 'directory');
     this.elem.setAttribute ('data-name', name);
     this.directoryImg = controller.document.createElement ('img');
-    this.directoryImg.setAttribute ('src', 'controller/directory.png');
+    this.directoryImg.setAttribute ('src', 'directory.png');
     this.directoryImg.on ('mouseup', function(){ self.toggleOpen(); });
     this.elem.appendChild (this.directoryImg);
     var titleElem = controller.document.createElement ('div');
@@ -72,7 +72,7 @@ Directory.prototype.open = function(){
         return;
     this.isOpen = true;
     this.elem.addClass ('open');
-    this.directoryImg.setAttribute ('src', 'controller/directory_open.png');
+    this.directoryImg.setAttribute ('src', 'directory_open.png');
     this.controller.revealDirectory();
 
     var self = this;
@@ -117,7 +117,7 @@ Directory.prototype.close = function(){
         return;
     this.isOpen = false;
     this.elem.dropClass ('open');
-    this.directoryImg.setAttribute ('src', 'controller/directory.png');
+    this.directoryImg.setAttribute ('src', 'directory.png');
 };
 
 Directory.prototype.toggleOpen = function(){
