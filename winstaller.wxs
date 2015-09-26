@@ -19,6 +19,7 @@
       <Directory Id="$(var.PlatformProgramFilesFolder)">
         <Directory Id="INSTALLDIR" Name="PornViewer">
           <Component Id="ApplicationFiles" Guid="8527e354-e187-4921-8af5-de92e1004b4a">
+            <CreateFolder />
             <File Id="Executable" Source="build\$(var.Platform)\nw.exe" Vital="yes" KeyPath="yes" />
             <File Id="Support0" Source="resources\$(var.Platform)\d3dcompiler_47.dll" />
             <File Id="Support1" Source="resources\$(var.Platform)\ffmpegsumo.dll" />
@@ -44,7 +45,6 @@
           </Component>
           <Component Id="GifAssociation" Guid="f0d9214a-b06c-4bea-b71e-ba0d6c8c2a36">
             <CreateFolder />
-            <File Name="gifDummy" Source="icon.ico" KeyPath="yes" />
             <ProgId Id='gifType' Description='gif images' Icon="Executable">
               <Extension Id='gif' ContentType='image/gif'>
                 <Verb Id='open' TargetFile="Executable" Command='Open' Argument='"%1"' />
@@ -53,7 +53,6 @@
           </Component>
           <Component Id="PngAssociation" Guid="fce019b8-5b96-4280-adf0-5bab8d975166">
             <CreateFolder />
-            <File Name="pngDummy" Source="icon.ico" KeyPath="yes" />
             <ProgId Id='pngType' Description='png images' Icon="Executable">
               <Extension Id='png' ContentType='image/png'>
                 <Verb Id='open' TargetFile="Executable" Command='Open' Argument='"%1"' />
@@ -71,10 +70,20 @@
             <RemoveFolder Id="ProgramMenuSubfolder" On="uninstall" />
           </Component>
         </Directory>
-     </Directory>
+      </Directory>
+      <Directory Id="LocalAppDataFolder" Name="AppData">
+        <Directory Id="APPDATADIR" Name="PornViewer">
+          <Component Id="AppDataDirectory" Guid="399fc944-9765-4391-b34d-c8926e2dc38c">
+            <RegistryValue Root="HKCU" Key="Software\Classes\Local Settings\Software\PornViewer" Name="LocalData" Value="yes" Type="string" KeyPath="yes" />
+            <CreateFolder />
+            <RemoveFolder Id="RemoveMyAppDirectory" On="uninstall" />
+          </Component>
+        </Directory>
+      </Directory>
     </Directory>
     <Feature Id="Complete" Title="PornViewer 0.0.1" Description="The complete package." Display="expand" Level="1" ConfigurableDirectory="INSTALLDIR">
       <ComponentRef Id="ApplicationFiles" />
+      <ComponentRef Id="AppDataDirectory" />
       <Feature Id="StartMenuFeature" Level="1" Title="Start Menu shortcuts" Description="Add PornViewer to the Start Menu" AllowAdvertise="no" InstallDefault="local">
         <ComponentRef Id="ApplicationShortcuts" />
       </Feature>

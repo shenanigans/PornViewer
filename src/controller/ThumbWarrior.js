@@ -36,7 +36,7 @@ var MAX_CLIP = 0.20;
 var THUMB_SIZE = 150;
 var CWD = process.cwd();
 var THUMBS_DIR = path.join (
-    process.env.APPDATA || (
+    process.env.LOCALAPPDATA || (
         process.platform == 'darwin' ?
             process.env.HOME + 'Library/Preference'
           : '/var/local'

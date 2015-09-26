@@ -15,6 +15,8 @@
   "window": {
     "position": "mouse",
     "title": "PornController",
-    "icon": "controller/icon.png"
+    "icon": "controller/icon.png",
+    "toolbar": false,
+    "frame": false
   }
 }

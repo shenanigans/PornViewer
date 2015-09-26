@@ -20,9 +20,9 @@ function Visualizer (controller) {
 
     // launch the Visualizer Window
     this.window = gui.Window.open ('./controller/Visualizer/index.html', {
-        // toolbar:        false,
-        // frame:          false,
-        // transparent:    true,
+        toolbar:        false,
+        frame:          false,
+        transparent:    true,
         title:          'PornViewer',
         icon:           'controller/icon.png'
     });

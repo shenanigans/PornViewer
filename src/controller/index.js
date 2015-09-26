@@ -106,11 +106,6 @@ function Controller (winnder) {
             if (aVal == bVal)
                 return 0;
             return 1;
-            // if (aVal < bVal)
-            //     return -1;
-            // if (aVal == bVal)
-            //     return 0;
-            // return 1;
         });
         for (var i=0,j=potemkin.length; i<j; i++)
             self.thumbsElem.appendChild (potemkin[i]);
@@ -361,39 +356,55 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 var thumbs = self.thumbsElem.children;
                 var other = thumbs[0].getAttribute (attr);
                 if (other === null || Number (other) <= value) {
-                    console.log ('prepend', value);
                     self.thumbsElem.insertBefore (container, thumbs[0]);
                     return callback();
                 }
                 other = thumbs[thumbs.length-1].getAttribute (attr);
                 if (other !== null && Number (other) >= value) {
-                    console.log ('append', value, other);
                     self.thumbsElem.appendChild (container);
                     return callback();
                 }
                 var middle = thumbs.length / 2;
-                var step = middle / 2;
+                var step = middle;
                 var next = Math.floor (middle);
                 var i;
+                var done = false;
                 do {
+                    step /= 2;
                     i = next;
                     other = thumbs[i].getAttribute (attr);
-                    if (other === null)
+                    if (other === null) {
                         next = Math.floor (middle -= step);
-                    else if (other <= value) {
+                        continue;
+                    }
+                    other = Number (other);
+                    if (other <= value) {
                         var prior = thumbs[i-1].getAttribute (attr);
                         if (prior === null || prior >= value) {
-                            console.log ('insert at', value, '->', thumbs[i-1].getAttribute (attr), thumbs[i].getAttribute (attr));
                             self.thumbsElem.insertBefore (container, thumbs[i]);
-                            return callback();
-                        } else
-                            next = Math.floor (middle -= step);
-                    } else
-                        next = Math.floor (middle += step);
-                    step /= 2;
+                            done = true;
+                            break;
+                        }
+                        next = Math.floor (middle -= step);
+                        continue;
+                    }
+                    next = Math.floor (middle += step);
                 } while (i != next);
-                console.log ('fall through', value, '->', thumbs[i].getAttribute (attr), thumbs[i+1].getAttribute (attr))
-                self.thumbsElem.insertBefore (container, thumbs[i+1]);
+                if (!done)
+                    self.thumbsElem.insertBefore (container, thumbs[i+1]);
+
+                // scroll to view
+                if (!self.selectedImage)
+                    return callback();
+
+                var position = self.selectedImage.getBoundingClientRect();
+                var offset = 0;
+                if (position.top < self.thumbsTop)
+                    offset = position.top - self.thumbsTop;
+                else if (position.bottom > self.window.window.innerHeight)
+                    offset = position.bottom - self.window.window.innerHeight;
+                self.thumbsElem.scrollTop += offset;
+
                 callback();
             });
         }, function(){
