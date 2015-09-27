@@ -87,16 +87,16 @@
       <Feature Id="StartMenuFeature" Level="1" Title="Start Menu shortcuts" Description="Add PornViewer to the Start Menu" AllowAdvertise="no" InstallDefault="local">
         <ComponentRef Id="ApplicationShortcuts" />
       </Feature>
-      <Feature Id="FiletypesFeature" Level="1" Title="File Associations" Description="Open image files with PornViewer" Display="expand" AllowAdvertise="no" InstallDefault="local">
-        <Feature Id="JpgTypesFeature" Level="1" Title="*.jpg and *.jpeg" Description="Open JPEG images with PornViewer" AllowAdvertise="no" InstallDefault="local">
+      <Feature Id="FiletypesFeature" Level="100" Title="File Associations" Description="Open image files with PornViewer" Display="expand" AllowAdvertise="no" InstallDefault="local">
+        <Feature Id="JpgTypesFeature" Level="100" Title="*.jpg and *.jpeg" Description="Open JPEG images with PornViewer" AllowAdvertise="no" InstallDefault="local">
           <ComponentRef Id="ApplicationFiles" />
           <ComponentRef Id="JpgAssociation" />
         </Feature>
-        <Feature Id="GifTypesFeature" Level="1" Title="*.gif" Description="Open GIF images with PornViewer" AllowAdvertise="no" InstallDefault="local">
+        <Feature Id="GifTypesFeature" Level="100" Title="*.gif" Description="Open GIF images with PornViewer" AllowAdvertise="no" InstallDefault="local">
           <ComponentRef Id="ApplicationFiles" />
           <ComponentRef Id="GifAssociation" />
         </Feature>
-        <Feature Id="PngTypesFeature" Level="1" Title="*.png" Description="Open PNG images with PornViewer" AllowAdvertise="no" InstallDefault="local">
+        <Feature Id="PngTypesFeature" Level="100" Title="*.png" Description="Open PNG images with PornViewer" AllowAdvertise="no" InstallDefault="local">
           <ComponentRef Id="ApplicationFiles" />
           <ComponentRef Id="PngAssociation" />
         </Feature>

@@ -24,11 +24,9 @@ function Visualizer (winnder, console) {
     // set up our DOM presence
     this.controlsElem = this.document.getElementById ('Controls');
     this.canvas = this.document.getElementById ('Display');
-    this.console.log (this.document.body);
     this.canvas.width = this.canvas.clientWidth;
     this.canvas.height = this.canvas.clientHeight;
     this.document.getElementById ('Minimize').on ('click', function(){
-        self.console.log ('from Visualizer');
         self.window.minimize();
     });
     this.dancer = this.document.getElementById ('Dancer');
@@ -47,13 +45,17 @@ function Visualizer (winnder, console) {
         self.isMaximized = false;
         maxElem.dropClass ('restore');
     });
-    this.window.on ('resize', function (width, height){
+    function resize (stayMax){
         self.canvas.width = self.canvas.clientWidth;
         self.canvas.height = self.canvas.clientHeight;
         self.redraw();
-        self.isMaximized = false;
-        maxElem.dropClass ('restore');
-    });
+        if (!stayMax) {
+            self.isMaximized = false;
+            maxElem.dropClass ('restore');
+        }
+    }
+    this.window.on ('resize', resize);
+    this.resize = resize;
     this.context = this.canvas.getContext('2d');
     this.context.fillStyle = 'white';
     this.modeSelect = this.document.getElementById ('Mode');

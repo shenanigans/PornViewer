@@ -121,7 +121,7 @@ body {
 }
 
 #Tree {
-    width: 15em;
+    width: 250px;
     overflow-y: scroll;
     overflow-x: auto;
     resize: horizontal;

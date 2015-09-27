@@ -17,7 +17,6 @@ function Controller (winnder, visualizer, console) {
     this.hostElem = this.document.getElementById ('Host');
     var self = this;
     this.document.body.on ('keydown', function (event) {
-        self.console.log ('from Controller');
         if (event.keyCode < 37 || event.keyCode > 40)
             return true;
         self.go (event.keyCode);
