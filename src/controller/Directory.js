@@ -73,7 +73,6 @@ Directory.prototype.open = function(){
     this.isOpen = true;
     this.elem.addClass ('open');
     this.directoryImg.setAttribute ('src', 'directory_open.png');
-    this.controller.revealDirectory();
 
     var self = this;
     fs.readdir (this.dirpath, function (err, children) {
@@ -107,7 +106,11 @@ Directory.prototype.open = function(){
                 if (err || !stats.isDirectory())
                     return callback();
                 self.addChild (newName);
+                callback();
             });
+        }, function(){
+            console.log (self.name, 'opened');
+            self.controller.revealDirectory (self.elem);
         });
     });
 };

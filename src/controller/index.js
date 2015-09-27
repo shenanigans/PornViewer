@@ -122,19 +122,24 @@ function Controller (winnder, visualizer, console) {
 }
 module.exports = Controller;
 
-Controller.prototype.revealDirectory = function(){
+Controller.prototype.revealDirectory = function (target) {
     clearTimeout (this.revealTimeout);
     var self = this;
+    if (!target)
+        target = self.lastSelectedElem;
     this.revealTimeout = setTimeout (function(){
         // scroll to view
-        if (!self.lastSelectedElem)
+        if (!target)
             return;
-        var position = self.lastSelectedElem.getBoundingClientRect();
+        var position = target.getBoundingClientRect();
         var offset = 0;
         if (position.top < self.treeTop)
             offset = position.top - self.treeTop;
         else if (position.bottom > self.treeElem.clientHeight + self.treeTop)
-            offset = position.bottom - self.treeElem.clientHeight - self.treeTop;
+            offset = Math.min (
+                position.bottom - self.treeElem.clientHeight - self.treeTop,
+                position.top - self.treeTop
+            );
         if (!offset)
             return;
         self.treeElem.scrollTop += offset;
