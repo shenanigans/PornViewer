@@ -5,6 +5,7 @@ var async = require ('async');
 var ThumbWarrior = require ('./ThumbWarrior');
 // var Collection = require ('./Collection');
 var Directory = require ('./Directory');
+var sorter = require ('./FilenameSorter');
 
 var DRIVE_REGEX = /([\w ]+\w)  +(\w:)/;
 function Controller (winnder, visualizer, console) {
@@ -191,7 +192,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 listed (err);
             return;
         }
-        filenames.sort();
+        filenames.sort (sorter);
         var imageNames = [];
         var imageElems = [];
         filenames.forEach (function (fname) {

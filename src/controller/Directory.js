@@ -3,6 +3,7 @@ var fs = require ('graceful-fs');
 var path = require ('path');
 var async = require ('async');
 // var gaze = require ('gaze');
+var sorter = require ('./FilenameSorter');
 
 function Directory (parent, controller, dirpath, name, extraName) {
     this.parent = parent;
@@ -68,11 +69,13 @@ Directory.prototype.addChild = function (name) {
 };
 
 Directory.prototype.open = function(){
-    if (this.isOpen)
-        return;
+    // if (this.isOpen)
+    //     return;
+    if (!this.isOpen) {
+        this.elem.addClass ('open');
+        this.directoryImg.setAttribute ('src', 'directory_open.png');
+    }
     this.isOpen = true;
-    this.elem.addClass ('open');
-    this.directoryImg.setAttribute ('src', 'directory_open.png');
 
     var self = this;
     fs.readdir (this.dirpath, function (err, children) {
@@ -82,6 +85,8 @@ Directory.prototype.open = function(){
             self.elem.dispose();
             return;
         }
+
+        children.sort (sorter);
 
         // trim missing
         var unknown = [];
@@ -109,7 +114,6 @@ Directory.prototype.open = function(){
                 callback();
             });
         }, function(){
-            console.log (self.name, 'opened');
             self.controller.revealDirectory (self.elem);
         });
     });
