@@ -248,6 +248,23 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 container.setAttribute ('data-created', stats.created);
                 container.setAttribute ('data-modified', stats.modified);
 
+                // drag handlers
+                container.setAttribute ('draggable', 'true');
+                container.on ('drag', function (event) {
+                    event.stopPropagation();
+                    container.addClass ('dragging');
+                });
+                container.on ('dragstart', function (event) {
+                    event.stopPropagation();
+                    event.dataTransfer.setData (
+                        'application/json',
+                        JSON.stringify ({ type:'image', path:path.join (dirpath, imageNames[imageI]) })
+                    );
+                });
+                container.on ('dragend', function(){
+                    container.dropClass ('dragging');
+                });
+
                 var newThumb = self.document.createElement ('img');
                 newThumb.setAttribute ('src', thumbPath);
                 if (padHeight)
