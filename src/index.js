@@ -30,9 +30,9 @@ visualizerWindow = gui.Window.open ('./Visualizer/index.html', {
 
 // launch the Controller Window
 controllerWindow = gui.Window.open ('./Controller/index.html', {
-    // toolbar:        false,
-    // frame:          false,
-    // transparent:    true,
+    toolbar:        false,
+    frame:          false,
+    transparent:    true,
     title:          'PornController',
     icon:           'icon.png'
 });
@@ -117,8 +117,8 @@ if (!winState) {
 }
 
 // uncomment to show devtools at startup
-var Window = gui.Window.get();
-Window.on ('loaded', function(){ Window.showDevTools(); });
+// var Window = gui.Window.get();
+// Window.on ('loaded', function(){ Window.showDevTools(); });
 
 // basic cross-window event listeners
 controllerWindow.on ('close', function(){
@@ -159,9 +159,6 @@ async.parallel ([
             if (winState.visualizer.maximize)
                 visualizerWindow.maximize();
             visualizer = new Visualizer (visualizerWindow, window.console);
-            // there seems to be a lack of synchronization here so we'll double check that the
-            // Visualizer's canvas gets adjusted
-            setTimeout (function(){ visualizer.resize (true); }, 100);
             // keyboard navigation events
             visualizerWindow.window.document.body.on ('keydown', function (event) {
                 if (event.keyCode < 37 || event.keyCode > 40)

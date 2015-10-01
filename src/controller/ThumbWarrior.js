@@ -9,6 +9,7 @@ var getType = require ('image-type');
 
 var gui = global.window.nwDispatcher.requireNwGui();
 
+
 /**     @module PornViewer:ThumbWarrior
 
 */
@@ -29,26 +30,17 @@ db.changeVersion (db.version, "1.2", function (tx) {
     delete dbQueue;
 });
 
-/**     @property/Function getThumb
-
-*/
 var ZOOM_INTO_MIN = 3 / 4;
 var ZOOM_INTO_MAX = 4 / 3;
 var MAX_CLIP = 0.20;
 var THUMB_SIZE = 150;
 var CWD = process.cwd();
 var THUMBS_DIR = path.join (gui.App.dataPath, 'thumbs');
-// var THUMBS_DIR = path.join (
-//     process.env.LOCALAPPDATA || (
-//         process.platform == 'darwin' ?
-//             process.env.HOME + 'Library/Preference'
-//           : '/var/local'
-//     ),
-//     'PornViewer',
-//     'thumbs'
-// );
 mkdirp.sync (THUMBS_DIR);
 
+/**     @property/Function getThumb
+
+*/
 module.exports.getThumb = function (dirpath, filename, callback) {
     if (!dbReady) {
         dbQueue.push (function(){ module.exports.getThumb (dirpath, filename, callback); });
@@ -133,7 +125,6 @@ module.exports.getThumb = function (dirpath, filename, callback) {
 
                         if (width == height)
                             return srcImage.resize (150, 150, function (err, image) {
-                                // console.log ('basic resize', err, image);
                                 if (err)
                                     return callback (err);
                                 finalImage = image;
@@ -156,12 +147,10 @@ module.exports.getThumb = function (dirpath, filename, callback) {
 
                         // finalize the transform
                         var batch = srcImage.batch()
-                         // .crop (left, top, right, bottom)
                          .crop (newWidth, newHeight)
                          .scale (scale)
                          ;
                         batch.exec (function (err, image) {
-                            // console.log ('batch resize', err, image);
                             if (err)
                                 return callback (err);
                             finalImage = image;

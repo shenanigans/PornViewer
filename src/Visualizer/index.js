@@ -46,14 +46,24 @@ function Visualizer (winnder, console) {
         maxElem.dropClass ('restore');
     });
     function resize (stayMax){
-        self.canvas.width = self.canvas.clientWidth;
-        self.canvas.height = self.canvas.clientHeight;
-        self.redraw();
+        if (self.canvas.width != self.canvas.clientWidth
+         || self.canvas.height != self.canvas.clientHeight
+        ) {
+            self.canvas.width = self.canvas.clientWidth;
+            self.canvas.height = self.canvas.clientHeight;
+            self.redraw();
+            if (initialInterval) {
+                clearInterval (initialInterval);
+                delete initialInterval;
+            }
+        }
         if (!stayMax) {
             self.isMaximized = false;
             maxElem.dropClass ('restore');
         }
     }
+    // when the window first resizes at startup, the resize event isn't sent. We have to poll.
+    var initialInterval = setInterval (resize, 100);
     this.window.on ('resize', resize);
     this.resize = resize;
     this.context = this.canvas.getContext('2d');
