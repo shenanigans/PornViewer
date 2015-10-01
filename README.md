@@ -49,7 +49,9 @@ So glad I asked.
 ## Building PornViewer
 You're going to need [nodejs](https://nodejs.org) and the npm thingy it comes with. Linux users are
 advised to **always** install Node.js from source. If you're on Windows, you will need MinGW. I
-recommend just using the lovely [command-line git installer](https://git-scm.com/downloads).
+recommend just using the lovely [command-line git installer](https://git-scm.com/downloads). You 
+will need your platform's support files for `gyp` builds. That's build-essential or yummy equivalent 
+on linux, xcode on osx and visual studio on windows.
 
 Clone this repository and download the most recent stable version of [node-webkit](https://github.com/nwjs/nw.js#downloads).
 Unzip it, put it in the repository directory and rename it `nw`. If you're building a windows msi,
