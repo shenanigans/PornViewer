@@ -2,6 +2,8 @@
 An image viewer for mission-critical applications. Designed to provide a pleasurable viewing
 experience. Theoretically cross-platform, currently available on Windows.
 
+![screenshot](http://i.imgur.com/MVzG6xH.jpg)
+
 
 ## Installation
 Use one of these installer links below. If you like it, please [help me not be so broke](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=PN6C2AZTS2FP8&lc=US&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted).
