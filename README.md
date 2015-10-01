@@ -64,10 +64,11 @@ npm install
 npm install -g nw-gyp
 cd node_modules/lwip
 nw-gyp clean
-nw-gyp configure --msvs_version=2013 --target=0.12.3
-# nw-gyp configure --msvs_version=2013 --target=0.12.3 --arch=ia32
+nw-gyp configure --target=0.12.3
+# on windows use --msvs_version=2013 
+# for x86 use --arch=ia32
 nw-gyp build
-# nw-gyp build --arch=ia32
+# for x86 use --arch=ia32
 cd ../../
 gulp once
 ```
