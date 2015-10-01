@@ -71,7 +71,7 @@ nw-gyp configure --target=0.12.3
 # for x86 use --arch=ia32
 nw-gyp build
 # for x86 use --arch=ia32
-cd ../../
+cd ../../../
 gulp once
 ```
 
