@@ -222,8 +222,11 @@ async.parallel ([
                 controller.currentPath = pathinfo.dir;
                 var ext = pathinfo.ext.slice(1);
                 if (Object.hasOwnProperty.call (SHOW_EXT, ext)) {
+                    controller.manualScrolling = false;
                     controller.selectedImagePath = openPath;
                     controller.visualizer.display (openPath, SHOW_EXT[ext]);
+                    visualizerWindow.restore();
+                    visualizerWindow.focus();
                 }
             }
         } catch (err) { console.log (err); return false; }

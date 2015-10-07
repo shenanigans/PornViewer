@@ -175,17 +175,25 @@ Controller.prototype.select = function (dirpath, elem, listed) {
     elem.addClass ('selected');
     this.lastSelectedElem = elem;
 
+    var self = this;
+
     // new <div.thumbs>
     this.selectedPath = dirpath;
     if (this.thumbsElem)
         this.thumbsElem.dispose();
     this.thumbsElem = this.document.createElement ('div');
+    this.thumbsElem.on ('scroll', function(){
+        if (self.autoScrolling)
+            self.autoScrolling = false;
+        else
+            self.manualScrolling = true;
+    });
+
     this.thumbsElem.setAttribute ('class', 'thumbs');
     delete this.selectedImage;
     this.hostElem.insertBefore (this.thumbsElem, this.hostElem.firstChild);
 
     // begin listing
-    var self = this;
     fs.readdir (dirpath, function (err, filenames) {
         if (err) {
             if (listed)
@@ -211,6 +219,8 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 newThumbContainer.setAttribute ('data-path', imgPath);
                 newThumbContainer.on ('click', function(){
                     self.showImage (newThumbContainer, imgPath);
+                    self.manualScrolling = false;
+                    self.revealThumb();
                 });
                 self.thumbsElem.appendChild (newThumbContainer);
                 imageElems.push (newThumbContainer);
@@ -300,24 +310,40 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 if (!done)
                     self.thumbsElem.insertBefore (container, thumbs[i+1]);
 
-                // scroll to view
-                if (!self.selectedImage)
-                    return callback();
-
-                var position = self.selectedImage.getBoundingClientRect();
-                var offset = 0;
-                if (position.top < self.thumbsTop)
-                    offset = position.top - self.thumbsTop;
-                else if (position.bottom > self.window.window.innerHeight)
-                    offset = position.bottom - self.window.window.innerHeight;
-                self.thumbsElem.scrollTop += offset;
-
+                self.revealThumb();
                 callback();
             });
         }, function(){
             window.localStorage.lastPath = dirpath;
         });
     });
+};
+
+/**     @member/Function revealThumb
+    If autoscrolling is enabled, scrolls the thumb container Element to reveal the [currently
+    selected thumbnail](#selectedImage).
+*/
+Controller.prototype.revealThumb = function(){
+    if (this.manualScrolling) // don't autoscroll while the user is trying to scroll
+        return;
+    if (!this.thumbsElem || !this.selectedImage)
+        return;
+
+    var position = this.selectedImage.getBoundingClientRect();
+    var offset = 0;
+    if (position.top < this.thumbsTop)
+        offset = position.top - this.thumbsTop;
+    else if (position.bottom > this.window.window.innerHeight)
+        offset = position.bottom - this.window.window.innerHeight;
+
+    if (offset > 0)
+        offset = Math.floor (offset);
+    else
+        offset = Math.ceil (offset);
+    if (!offset)
+        return;
+    this.autoScrolling = true;
+    this.thumbsElem.scrollTop += offset;
 };
 
 Controller.prototype.showImage = function (thumbElem, imgPath) {
@@ -344,15 +370,7 @@ Controller.prototype.showImage = function (thumbElem, imgPath) {
     if (thumbIndex < 0) // thumb not drawn
         return;
 
-    // scroll to view
-    var position = thumbElem.getBoundingClientRect();
-    var offset = 0;
-    if (position.top < this.thumbsTop)
-        offset = position.top - this.thumbsTop;
-    else if (position.bottom > this.window.window.innerHeight)
-        offset = position.bottom - this.window.window.innerHeight;
-    this.thumbsElem.scrollTop += offset;
-
+    this.revealThumb();
     if (this.selectedImagePath == imgPath)
         return;
     this.selectedImagePath = imgPath;
@@ -410,6 +428,9 @@ Controller.prototype.lookDown = function(){
 };
 
 Controller.prototype.go = function (direction) {
+    // keyboard overrides manual scrolling
+    this.manualScrolling = false;
+
     if (!this.selectedImage) {
         if (!this.thumbsElem.children.length)
             return;

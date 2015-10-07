@@ -3,5 +3,7 @@ node_modules
 src/node_modules
 nw
 nw.old
+nw.x86
+nw.x64
 resources
 build
