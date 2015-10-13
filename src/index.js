@@ -7,7 +7,7 @@ var Visualizer = require ('./Visualizer');
 var Controller = require ('./Controller');
 var scum = require ('scum');
 
-var SHOW_EXT = { jpg:'jpg', jpeg:'jpg', gif:'gif', png:'png' };
+var SHOW_EXT = { '.jpg':'jpg', '.jpeg':'jpg', 'gif.':'gif', 'png.':'png' };
 var CONTROLLER_BASE_WIDTH = 295;
 var CONTROLLER_MIN_WIDTH = CONTROLLER_BASE_WIDTH + 150;
 
@@ -47,47 +47,47 @@ if (winState) {
 
 }
 if (!winState) {
-    if (screens.length > 1) {
-        // use two monitors on the bottom right position
-        screens.sort (function (able, baker) {
-            var aX = able.work_area.x;
-            var bX = baker.work_area.x;
-            if (aX < bX)
-                return -1;
-            if (aX > bX)
-                return 1;
-            var aY = able.work_area.y;
-            var bY = baker.work_area.y;
-            if (aY < bY)
-                return -1;
-            if (aY > bY)
-                return 1;
-            return 0;
-        });
-        var controllerState = screens[screens.length-2].work_area;
-        var visualizerState = screens[screens.length-1].work_area;
-        winState = {
-            controller: {
-                maximize:   true,
-                x:          controllerState.x,
-                y:          controllerState.y,
-                width:      Math.floor (0.7 * controllerState.width),
-                height:     Math.floor (0.7 * controllerState.height)
-            },
-            visualizer: {
-                maximize:   true,
-                x:          visualizerState.x,
-                y:          visualizerState.y,
-                width:      Math.floor (0.7 * visualizerState.width),
-                height:     Math.floor (0.7 * visualizerState.height)
-            }
-        };
-    } else if (screens.length != 1) {
-        winState = {
-            controller:{ x:0, y:0, width:CONTROLLER_MIN_WIDTH, height: 600 },
-            visualizer:{ x:CONTROLLER_MIN_WIDTH, y:0, width:800 - CONTROLLER_MIN_WIDTH, height: 600 }
-        };
-    } else {
+    // if (screens.length > 1) {
+    //     // use two monitors on the bottom right position
+    //     screens.sort (function (able, baker) {
+    //         var aX = able.work_area.x;
+    //         var bX = baker.work_area.x;
+    //         if (aX < bX)
+    //             return -1;
+    //         if (aX > bX)
+    //             return 1;
+    //         var aY = able.work_area.y;
+    //         var bY = baker.work_area.y;
+    //         if (aY < bY)
+    //             return -1;
+    //         if (aY > bY)
+    //             return 1;
+    //         return 0;
+    //     });
+    //     var controllerState = screens[screens.length-2].work_area;
+    //     var visualizerState = screens[screens.length-1].work_area;
+    //     winState = {
+    //         controller: {
+    //             maximize:   true,
+    //             x:          controllerState.x,
+    //             y:          controllerState.y,
+    //             width:      Math.floor (0.7 * controllerState.width),
+    //             height:     Math.floor (0.7 * controllerState.height)
+    //         },
+    //         visualizer: {
+    //             maximize:   true,
+    //             x:          visualizerState.x,
+    //             y:          visualizerState.y,
+    //             width:      Math.floor (0.7 * visualizerState.width),
+    //             height:     Math.floor (0.7 * visualizerState.height)
+    //         }
+    //     };
+    // } else if (screens.length != 1) {
+    //     winState = {
+    //         controller:{ x:0, y:0, width:CONTROLLER_MIN_WIDTH, height: 600 },
+    //         visualizer:{ x:CONTROLLER_MIN_WIDTH, y:0, width:800 - CONTROLLER_MIN_WIDTH, height: 600 }
+    //     };
+    // } else {
         var onlyScreen = screens[0].work_area;
         var maxControllerWidth = Math.floor (onlyScreen.width / 2);
         var controllerWidth;
@@ -112,7 +112,7 @@ if (!winState) {
             }
         };
 
-    }
+    // }
     // window.localStorage.windowState = JSON.stringify (winState);
 }
 
@@ -132,6 +132,32 @@ visualizerWindow.on ('close', function(){
     setTimeout(function(){ gui.App.quit(); }, 50);
 });
 
+// load opened file or last path
+var openPath, currentPath, ext;
+if (gui.App.argv.length) {
+    openPath = gui.App.argv[0];
+    // exists? directory?
+    try {
+        var stats = fs.statSync (openPath);
+        if (stats.isDirectory())
+            currentPath = openPath;
+        else {
+            var pathinfo = path.parse (openPath);
+            currentPath = pathinfo.dir;
+            if (!Object.hasOwnProperty.call (SHOW_EXT, pathinfo.ext)) {
+                delete openPath;
+                // show an error message
+                // TODO
+            }
+        }
+    } catch (err) { /* fall through */ }
+}
+if (!currentPath && !(currentPath = window.localStorage.lastPath))
+    currentPath = window.localStorage.lastPath = process.env[
+        process.platform = 'win32' ? 'USERPROFILE' : 'HOME'
+    ];
+
+// load both windows
 async.parallel ([
     function (callback) {
         controllerWindow.on ('loaded', function(){
@@ -165,38 +191,22 @@ async.parallel ([
                     return;
                 controller.go (event.keyCode);
             });
+            if (openPath)
+                visualizer.display (filepath, ext);
             callback();
         });
     }
 ], function (err) {
-    controller = new Controller (controllerWindow, visualizer, window.console);
-
-    // load opened file or last path
-    var openPath;
-    if (gui.App.argv.length) {
-        openPath = gui.App.argv[0];
-        // exists? directory?
-        try {
-            var stats = fs.statSync (openPath);
-            if (stats.isDirectory())
-                controller.currentPath = openPath;
-            else {
-                var pathinfo = path.parse (openPath);
-                controller.currentPath = pathinfo.dir;
-                var ext = pathinfo.ext.slice(1);
-                if (Object.hasOwnProperty.call (SHOW_EXT, ext)) {
-                    controller.selectedImagePath = openPath;
-                    controller.visualizer.display (openPath, ext);
-                }
-            }
-        } catch (err) { /* fall through */ }
+    if (err) {
+        // just fail
+        gui.App.quit();
+        return;
     }
-    if (!controller.currentPath && !(controller.currentPath = window.localStorage.lastPath))
-        controller.currentPath = window.localStorage.lastPath = process.env[
-            process.platform = 'win32' ? 'USERPROFILE' : 'HOME'
-        ];
 
-    // reveal path
+    // ready to start the controller now
+    controller = new Controller (controllerWindow, visualizer, window.console);
+    // reveal current path
+    controller.currentPath = currentPath;
     controller.openCurrent (function (err) {
         if (err)
             return;

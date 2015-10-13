@@ -5,6 +5,8 @@ var async = require ('async');
 // var gaze = require ('gaze');
 var sorter = require ('./FilenameSorter');
 
+var POPUP_TIMEOUT = 850;
+
 function Directory (parent, controller, dirpath, name, extraName) {
     this.parent = parent;
     this.controller = controller;
@@ -18,14 +20,60 @@ function Directory (parent, controller, dirpath, name, extraName) {
     this.elem = controller.document.createElement ('div');
     this.elem.setAttribute ('class', 'directory');
     this.elem.setAttribute ('data-name', name);
+    this.elem.on ('selectstart', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+    });
+    this.elem.setAttribute ('draggable', 'true');
+    this.elem.on ('drag', function (event) {
+        event.stopPropagation();
+        self.elem.addClass ('dragging');
+    });
+    this.elem.on ('dragstart', function (event) {
+        event.stopPropagation();
+        event.dataTransfer.setData (
+            'application/json',
+            JSON.stringify ({ type:'directory', path:self.dirpath })
+        );
+    });
+    this.elem.on ('dragend', function(){
+        self.elem.dropClass ('dragging');
+    });
+    var popupTimer;
+    this.elem.on ('dragenter', function (event) {
+        var dropData = event.dataTransfer.getData ('application/json');
+        if (!dropData)
+            return; // some other drop occured, let it bubble
+        event.stopPropagation();
+        self.elem.addClass ('dragover');
+        popupTimer = setTimeout (function(){
+            self.open();
+        }, POPUP_TIMEOUT);
+    });
+    this.elem.on ('dragleave', function (event) {
+        event.stopPropagation();
+        self.elem.dropClass ('dragover');
+        clearTimeout (popupTimer);
+    });
+    this.elem.on ('drop', function (event) {
+        var dropData = event.dataTransfer.getData ('application/json');
+        if (!dropData)
+            return; // some other drop occured, let it bubble
+        dropData = JSON.parse (dropData);
+        console.log (dropData);
+        event.stopPropagation();
+        self.elem.dropClass ('dragover');
+        clearTimeout (popupTimer);
+    });
     this.directoryImg = controller.document.createElement ('img');
     this.directoryImg.setAttribute ('src', 'directory.png');
-    this.directoryImg.on ('mouseup', function(){ self.toggleOpen(); });
+    this.directoryImg.on ('click', function(){ self.toggleOpen(); });
     this.elem.appendChild (this.directoryImg);
     var titleElem = controller.document.createElement ('div');
     titleElem.setAttribute ('class', 'title');
     titleElem.appendChild (controller.document.createTextNode (extraName || name));
-    titleElem.on ('mouseup', function(){
+    titleElem.on ('click', function(){
         self.open();
         controller.select (dirpath, self.elem);
     });
