@@ -47,47 +47,47 @@ if (winState) {
 
 }
 if (!winState) {
-    // if (screens.length > 1) {
-    //     // use two monitors on the bottom right position
-    //     screens.sort (function (able, baker) {
-    //         var aX = able.work_area.x;
-    //         var bX = baker.work_area.x;
-    //         if (aX < bX)
-    //             return -1;
-    //         if (aX > bX)
-    //             return 1;
-    //         var aY = able.work_area.y;
-    //         var bY = baker.work_area.y;
-    //         if (aY < bY)
-    //             return -1;
-    //         if (aY > bY)
-    //             return 1;
-    //         return 0;
-    //     });
-    //     var controllerState = screens[screens.length-2].work_area;
-    //     var visualizerState = screens[screens.length-1].work_area;
-    //     winState = {
-    //         controller: {
-    //             maximize:   true,
-    //             x:          controllerState.x,
-    //             y:          controllerState.y,
-    //             width:      Math.floor (0.7 * controllerState.width),
-    //             height:     Math.floor (0.7 * controllerState.height)
-    //         },
-    //         visualizer: {
-    //             maximize:   true,
-    //             x:          visualizerState.x,
-    //             y:          visualizerState.y,
-    //             width:      Math.floor (0.7 * visualizerState.width),
-    //             height:     Math.floor (0.7 * visualizerState.height)
-    //         }
-    //     };
-    // } else if (screens.length != 1) {
-    //     winState = {
-    //         controller:{ x:0, y:0, width:CONTROLLER_MIN_WIDTH, height: 600 },
-    //         visualizer:{ x:CONTROLLER_MIN_WIDTH, y:0, width:800 - CONTROLLER_MIN_WIDTH, height: 600 }
-    //     };
-    // } else {
+    if (screens.length > 1) {
+        // use two monitors on the bottom right position
+        screens.sort (function (able, baker) {
+            var aX = able.work_area.x;
+            var bX = baker.work_area.x;
+            if (aX < bX)
+                return -1;
+            if (aX > bX)
+                return 1;
+            var aY = able.work_area.y;
+            var bY = baker.work_area.y;
+            if (aY < bY)
+                return -1;
+            if (aY > bY)
+                return 1;
+            return 0;
+        });
+        var controllerState = screens[screens.length-2].work_area;
+        var visualizerState = screens[screens.length-1].work_area;
+        winState = {
+            controller: {
+                maximize:   true,
+                x:          controllerState.x,
+                y:          controllerState.y,
+                width:      Math.floor (0.7 * controllerState.width),
+                height:     Math.floor (0.7 * controllerState.height)
+            },
+            visualizer: {
+                maximize:   true,
+                x:          visualizerState.x,
+                y:          visualizerState.y,
+                width:      Math.floor (0.7 * visualizerState.width),
+                height:     Math.floor (0.7 * visualizerState.height)
+            }
+        };
+    } else if (screens.length != 1) {
+        winState = {
+            controller:{ x:0, y:0, width:CONTROLLER_MIN_WIDTH, height: 600 },
+            visualizer:{ x:CONTROLLER_MIN_WIDTH, y:0, width:800 - CONTROLLER_MIN_WIDTH, height: 600 }
+        };
+    } else {
         var onlyScreen = screens[0].work_area;
         var maxControllerWidth = Math.floor (onlyScreen.width / 2);
         var controllerWidth;
@@ -112,7 +112,7 @@ if (!winState) {
             }
         };
 
-    // }
+    }
     // window.localStorage.windowState = JSON.stringify (winState);
 }
 
