@@ -2,15 +2,19 @@
 An image viewer for mission-critical applications. Designed to provide a pleasurable viewing
 experience. Theoretically cross-platform, currently available on Windows.
 
+![screenshot](http://i.imgur.com/MVzG6xH.jpg)
+
 
 ## Installation
 Use one of these installer links below. If you like it, please [help me not be so broke](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=PN6C2AZTS2FP8&lc=US&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted).
 
 ### Windows Installers
 #### 64 bits
-
+ * [0.0.1](https://github.com/shenanigans/PornViewer/releases/download/0.0.1/PornViewer_x64.msi)
+ 
 #### 32 bits
-
+The startup time is slightly slower than the x64 version, but I'm working on it.
+ * [0.0.1](https://github.com/shenanigans/PornViewer/releases/download/0.0.1/PornViewer_x86.msi)
 
 ### Linux Binaries
 I've been having a problem with the `lwip` module, it's supposed to statically bind its own libpng
@@ -45,7 +49,9 @@ So glad I asked.
 ## Building PornViewer
 You're going to need [nodejs](https://nodejs.org) and the npm thingy it comes with. Linux users are
 advised to **always** install Node.js from source. If you're on Windows, you will need MinGW. I
-recommend just using the lovely [command-line git installer](https://git-scm.com/downloads).
+recommend just using the lovely [command-line git installer](https://git-scm.com/downloads). You 
+will need your platform's support files for `gyp` builds. That's build-essential or yummy equivalent 
+on linux, xcode on osx and visual studio on windows.
 
 Clone this repository and download the most recent stable version of [node-webkit](https://github.com/nwjs/nw.js#downloads).
 Unzip it, put it in the repository directory and rename it `nw`. If you're building a windows msi,
@@ -60,11 +66,12 @@ npm install
 npm install -g nw-gyp
 cd node_modules/lwip
 nw-gyp clean
-nw-gyp configure --msvs_version=2013 --target=0.12.3
-# nw-gyp configure --msvs_version=2013 --target=0.12.3 --arch=ia32
+nw-gyp configure --target=0.12.3
+# on windows use --msvs_version=2013 
+# for x86 use --arch=ia32
 nw-gyp build
-# nw-gyp build --arch=ia32
-cd ../../
+# for x86 use --arch=ia32
+cd ../../../
 gulp once
 ```
 
