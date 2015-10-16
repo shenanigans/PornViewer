@@ -264,11 +264,26 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                     event.stopPropagation();
                     container.addClass ('dragging');
                 });
+                var dragURL =
+                    'image/'
+                  + stats.type
+                  + ':'
+                  + container.getAttribute ('data-name')
+                  + ':file://'
+                  + container.getAttribute ('data-path')
+                  ;
                 container.on ('dragstart', function (event) {
                     event.stopPropagation();
+                    // for dragging out of the app
+                    event.dataTransfer.setData ('DownloadURL', dragURL);
+                    // for dragging within the app
                     event.dataTransfer.setData (
                         'application/json',
-                        JSON.stringify ({ type:'image', path:path.join (dirpath, imageNames[imageI]) })
+                        JSON.stringify ({
+                            type:   'image',
+                            path:   path.join (dirpath, imageNames[imageI]),
+                            name:   name
+                        })
                     );
                 });
                 container.on ('dragend', function(){

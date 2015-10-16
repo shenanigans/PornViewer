@@ -34,7 +34,7 @@ function Directory (parent, controller, dirpath, name, extraName) {
         event.stopPropagation();
         event.dataTransfer.setData (
             'application/json',
-            JSON.stringify ({ type:'directory', path:self.dirpath })
+            JSON.stringify ({ type:'directory', path:self.dirpath, name:name })
         );
     });
     this.elem.on ('dragend', function(){
@@ -61,10 +61,14 @@ function Directory (parent, controller, dirpath, name, extraName) {
         if (!dropData)
             return; // some other drop occured, let it bubble
         dropData = JSON.parse (dropData);
-        console.log (dropData);
+
         event.stopPropagation();
         self.elem.dropClass ('dragover');
         clearTimeout (popupTimer);
+
+        fs.rename (dropData.path, path.join (self.dirpath, dropData.name), function (err) {
+
+        });
     });
     this.directoryImg = controller.document.createElement ('img');
     this.directoryImg.setAttribute ('src', 'directory.png');

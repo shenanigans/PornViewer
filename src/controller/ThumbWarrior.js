@@ -115,16 +115,16 @@ module.exports.getThumb = function (dirpath, filename, callback) {
                     lwip.open (buf, imageType.ext, function (err, image) {
                         if (err)
                             return callback (err);
-                        srcImage = image;
+                        finalImage = image;
 
-                        var width = srcImage.width();
-                        var height = srcImage.height();
+                        var width = image.width();
+                        var height = image.height();
 
                         if (width <= THUMB_SIZE && height <= THUMB_SIZE)
                             return callback();
 
                         if (width == height)
-                            return srcImage.resize (150, 150, function (err, image) {
+                            return image.resize (150, 150, function (err, image) {
                                 if (err)
                                     return callback (err);
                                 finalImage = image;
@@ -146,7 +146,7 @@ module.exports.getThumb = function (dirpath, filename, callback) {
                         }
 
                         // finalize the transform
-                        var batch = srcImage.batch()
+                        var batch = image.batch()
                          .crop (newWidth, newHeight)
                          .scale (scale)
                          ;
