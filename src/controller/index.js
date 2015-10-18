@@ -214,7 +214,8 @@ Controller.prototype.select = function (dirpath, elem, listed) {
     var self = this;
     if (this.gazer)
         this.gazer.close();
-    this.gazer = new gaze.Gaze (dirpath);
+    this.gazer = new gaze.Gaze ('*', { cwd:dirpath });
+    this.gazer.on ('ready', function (watcher) { console.log ('ready', watcher); });
     this.gazer.on ('added', function (filepath) {
 
     });
@@ -315,11 +316,12 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                     event.stopPropagation();
                     container.addClass ('dragging');
                 });
+                var filename = container.getAttribute ('data-name');
                 var dragURL =
                     'image/'
                   + stats.type
                   + ':'
-                  + container.getAttribute ('data-name')
+                  + filename
                   + ':file://'
                   + container.getAttribute ('data-path')
                   ;
@@ -333,7 +335,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                         JSON.stringify ({
                             type:   'image',
                             path:   path.join (dirpath, imageNames[imageI]),
-                            name:   name
+                            name:   filename
                         })
                     );
                 });

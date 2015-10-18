@@ -68,8 +68,13 @@ function Directory (parent, controller, dirpath, name, extraName) {
         self.elem.dropClass ('dragover');
         clearTimeout (popupTimer);
 
-        var oldNode = self.root.getDir (dropData.path);
+        var isDir = dropData.type == 'directory';
+        var oldNode;
+        if (isDir)
+            oldNode = self.root.getDir (dropData.path);
         fs.rename (dropData.path, path.join (self.dirpath, dropData.name), function (err) {
+            if (!isDir)
+                return;
             self.addChild (dropData.name);
             if (!oldNode) return;
             oldNode.elem.dropClass ('moving');
