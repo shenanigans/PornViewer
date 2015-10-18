@@ -164,7 +164,7 @@ body {
 }
 
 .directory.open > .children:empty {
-    padding: 0.5em 0 0.5em 1em;
+
 }
 
 .directory.open > .children:empty:before {
@@ -189,6 +189,10 @@ body {
 .directory.dragover > .title {
     text-decoration: underline;
     color: #E600E3;
+}
+
+.directory.moving {
+    opacity: 0.5;
 }
 
 #Host {

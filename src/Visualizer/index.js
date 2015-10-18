@@ -45,23 +45,26 @@ function Visualizer (winnder, console) {
         self.isMaximized = false;
         maxElem.dropClass ('restore');
     });
-    function resize (stayMax){
+
+    this.initialResizeClip = 100; // limit the initially rapid resize watchdog poll
+    function resize (event) {
         if (self.canvas.width != self.canvas.clientWidth
          || self.canvas.height != self.canvas.clientHeight
         ) {
             self.canvas.width = self.canvas.clientWidth;
             self.canvas.height = self.canvas.clientHeight;
             self.redraw();
-            if (initialInterval) {
+
+            // handle interval timing
+            if ( initialInterval && ( !event || !--self.initialResizeClip ) ) {
                 clearInterval (initialInterval);
+                initialInterval = undefined;
                 delete initialInterval;
+                setInterval (resize, 5000);
             }
         }
-        if (!stayMax) {
-            self.isMaximized = false;
-            maxElem.dropClass ('restore');
-        }
     }
+
     // when the window first resizes at startup, the resize event isn't sent. We have to poll.
     var initialInterval = setInterval (resize, 100);
     this.window.on ('resize', resize);
@@ -167,10 +170,13 @@ Visualizer.prototype.redraw = function(){
     if (!this.activeImage)
         return;
 
-    var width = this.activeImage.width;
-    var height = this.activeImage.height;
+    var width = Math.floor (this.activeImage.width);
+    var height = Math.floor (this.activeImage.height);
     var canvasWidth = this.canvas.width;
     var canvasHeight = this.canvas.height;
+    var top = Math.floor (( canvasHeight - height ) / 2);
+    var left = Math.floor (( canvasWidth - width ) / 2);
+
     if (this.dancer.firstChild)
         this.dancer.firstChild.dispose();
     this.context.clearRect (0, 0, canvasWidth, canvasHeight);
@@ -187,12 +193,10 @@ Visualizer.prototype.redraw = function(){
             width = Math.round (width * coef);
         }
 
-        var top = Math.floor (( canvasHeight - height ) / 2);
-        var left = Math.floor (( canvasWidth - width ) / 2);
-        this.context.fillRect (left, top, width, height);
-        if (this.activeType != 'gif')
+        if (this.activeType != 'gif') {
+            this.context.fillRect (left, top, width, height);
             this.context.drawImage (this.activeImage, left, top, width, height);
-        else {
+        } else {
             this.dancer.setAttribute (
                 'style',
                 'top:'+top+'px;left:'+left+'px;width:'+width+'px;height:'+height+'px;'
@@ -223,7 +227,7 @@ Visualizer.prototype.redraw = function(){
 
     var top = Math.floor (( canvasHeight - height ) / 2);
     var left = Math.floor (( canvasWidth - width ) / 2);
-    this.context.fillRect (left, top, width, height);
+        this.context.fillRect (left, top, width, height);
     if (this.activeType != 'gif')
         this.context.drawImage (this.activeImage, left, top, width, height);
     else {
@@ -233,5 +237,4 @@ Visualizer.prototype.redraw = function(){
         );
         this.dancer.appendChild (this.activeImage);
     }
-    this.context.drawImage (this.activeImage, left, top, width, height);
 };

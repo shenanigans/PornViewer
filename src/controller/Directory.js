@@ -9,6 +9,7 @@ var POPUP_TIMEOUT = 850;
 
 function Directory (parent, controller, dirpath, name, extraName) {
     this.parent = parent;
+    this.root = parent.root;
     this.controller = controller;
     this.dirpath = dirpath;
     this.name = name;
@@ -30,11 +31,12 @@ function Directory (parent, controller, dirpath, name, extraName) {
         event.stopPropagation();
         self.elem.addClass ('dragging');
     });
+    var dragData = { type:'directory', path:self.dirpath, name:name };
     this.elem.on ('dragstart', function (event) {
         event.stopPropagation();
         event.dataTransfer.setData (
             'application/json',
-            JSON.stringify ({ type:'directory', path:self.dirpath, name:name })
+            JSON.stringify (dragData)
         );
     });
     this.elem.on ('dragend', function(){
@@ -66,9 +68,20 @@ function Directory (parent, controller, dirpath, name, extraName) {
         self.elem.dropClass ('dragover');
         clearTimeout (popupTimer);
 
+        var oldNode = self.root.getDir (dropData.path);
         fs.rename (dropData.path, path.join (self.dirpath, dropData.name), function (err) {
-
+            self.addChild (dropData.name);
+            if (!oldNode) return;
+            oldNode.elem.dropClass ('moving');
+            fs.stat (dropData.path, function (err, stats) {
+                if (err || !stats) {
+                    oldNode.elem.dispose();
+                    delete oldNode.parent.children[oldNode.name];
+                }
+            });
         });
+        if (!oldNode) return;
+        oldNode.elem.addClass ('moving');
     });
     this.directoryImg = controller.document.createElement ('img');
     this.directoryImg.setAttribute ('src', 'directory.png');

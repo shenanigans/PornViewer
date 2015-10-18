@@ -2,6 +2,7 @@
 var fs = require ('fs');
 var path = require ('path');
 var async = require ('async');
+var gaze = require ('gaze');
 var ThumbWarrior = require ('./ThumbWarrior');
 // var Collection = require ('./Collection');
 var Directory = require ('./Directory');
@@ -43,10 +44,32 @@ function Controller (winnder, visualizer, console) {
         self.isMaximized = false;
         maxElem.dropClass ('restore');
     });
-    winnder.on ('resize', function(){
-        self.isMaximized = false;
-        self.revealDirectory();
-    });
+
+    this.initialResizeClip = 100; // limit the initially rapid resize watchdog poll
+    var currentWidth = this.document.body.clientWidth;
+    var currentHeight = this.document.body.clientHeight;
+    function resize (event) {
+        if (currentWidth != self.document.body.clientWidth
+         || currentHeight != self.document.body.clientHeight
+        ) {
+            currentWidth = self.document.body.clientWidth;
+            currentHeight = self.document.body.clientHeight;
+            self.revealDirectory();
+            self.revealThumb();
+
+            // handle interval timing
+            if ( initialInterval && ( !event || !--self.initialResizeClip ) ) {
+                clearInterval (initialInterval);
+                initialInterval = undefined;
+                delete initialInterval;
+                setInterval (resize, 1000);
+            }
+        }
+    }
+    // when the window first resizes at startup, the resize event isn't sent. We have to poll.
+    var initialInterval = setInterval (resize, 100);
+    winnder.on ('resize', resize);
+
     this.document.getElementById ('Close').on ('click', function(){
         self.window.close();
     });
@@ -94,7 +117,20 @@ function Controller (winnder, visualizer, console) {
     // set up Tree Element
     this.treeTop = this.document.getElementById ('Bar').getBoundingClientRect().bottom;
     this.treeElem = this.document.getElementById ('Tree');
-    this.root = { children:{}, childrenElem:this.treeElem };
+    var root = this.root = { children:{}, childrenElem:this.treeElem, getDir:function (dir) {
+        var dirFrags = dir
+         .split (process.platform == 'win32' ? /[\/\\]/g : /\//g)
+         .filter (Boolean)
+         ;
+        var pointer = root;
+        for (var i=0,j=dirFrags.length; i<j; i++)
+            if (!Object.hasOwnProperty.call (pointer.children, dirFrags[i]))
+                return;
+            else
+                pointer = pointer.children[dirFrags[i]];
+        return pointer;
+    }};
+    this.root.root = root;
 
     // on windows we need to enumerate the drives
     if (process.platform == 'win32')
@@ -149,7 +185,7 @@ Controller.prototype.revealDirectory = function (target) {
 
 Controller.prototype.openCurrent = function (listed) {
     var pathArr = this.currentPath
-     .split (process.platform == 'win32' ? /[\/\\]/g : '/')
+     .split (process.platform == 'win32' ? /[\/\\]/g : /\//g)
      .filter (Boolean)
      ;
     if (process.platform != 'win32')
@@ -176,6 +212,21 @@ Controller.prototype.select = function (dirpath, elem, listed) {
     this.lastSelectedElem = elem;
 
     var self = this;
+    if (this.gazer)
+        this.gazer.close();
+    this.gazer = new gaze.Gaze (dirpath);
+    this.gazer.on ('added', function (filepath) {
+
+    });
+    this.gazer.on ('changed', function (filepath) {
+
+    });
+    this.gazer.on ('deleted', function (filepath) {
+
+    });
+    this.gazer.on ('renamed', function (newPath, oldPath) {
+
+    });
 
     // new <div.thumbs>
     this.selectedPath = dirpath;
@@ -374,11 +425,12 @@ Controller.prototype.revealThumb = function(){
         offset = Math.ceil (offset);
     if (!offset)
         return;
+
     this.autoScrolling = true;
     this.thumbsElem.scrollTop += offset;
 };
 
-Controller.prototype.showImage = function (thumbElem, imgPath) {
+Controller.prototype.showImage = function (thumbElem, imgPath, ext) {
     if (this.selectedImage)
         this.selectedImage.dropClass ('selected');
     var thumbIndex;
@@ -406,7 +458,7 @@ Controller.prototype.showImage = function (thumbElem, imgPath) {
     if (this.selectedImagePath == imgPath)
         return;
     this.selectedImagePath = imgPath;
-    this.visualizer.display (imgPath, thumbElem.getAttribute ('data-type'));
+    this.visualizer.display (imgPath, ext || thumbElem.getAttribute ('data-type'));
 
     // preload nearby thumbs
     clearTimeout (this.preloadJob);

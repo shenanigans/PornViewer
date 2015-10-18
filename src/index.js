@@ -7,7 +7,7 @@ var Visualizer = require ('./Visualizer');
 var Controller = require ('./Controller');
 var scum = require ('scum');
 
-var SHOW_EXT = { '.jpg':'jpg', '.jpeg':'jpg', 'gif.':'gif', 'png.':'png' };
+var SHOW_EXT = { '.jpg':'jpg', '.jpeg':'jpg', '.gif':'gif', '.png':'png' };
 var CONTROLLER_BASE_WIDTH = 295;
 var CONTROLLER_MIN_WIDTH = CONTROLLER_BASE_WIDTH + 150;
 
@@ -133,18 +133,20 @@ visualizerWindow.on ('close', function(){
 });
 
 // load opened file or last path
-var openPath, currentPath, ext;
+var openPath, openDir, ext;
 if (gui.App.argv.length) {
     openPath = gui.App.argv[0];
     // exists? directory?
     try {
         var stats = fs.statSync (openPath);
         if (stats.isDirectory())
-            currentPath = openPath;
+            openDir = openPath;
         else {
             var pathinfo = path.parse (openPath);
-            currentPath = pathinfo.dir;
-            if (!Object.hasOwnProperty.call (SHOW_EXT, pathinfo.ext)) {
+            openDir = pathinfo.dir;
+            if (Object.hasOwnProperty.call (SHOW_EXT, pathinfo.ext))
+                ext = pathinfo.ext.slice (1);
+            else {
                 delete openPath;
                 // show an error message
                 // TODO
@@ -152,8 +154,8 @@ if (gui.App.argv.length) {
         }
     } catch (err) { /* fall through */ }
 }
-if (!currentPath && !(currentPath = window.localStorage.lastPath))
-    currentPath = window.localStorage.lastPath = process.env[
+if (!openDir && !(openDir = window.localStorage.lastPath))
+    openDir = window.localStorage.lastPath = process.env[
         process.platform = 'win32' ? 'USERPROFILE' : 'HOME'
     ];
 
@@ -192,7 +194,7 @@ async.parallel ([
                 controller.go (event.keyCode);
             });
             if (openPath)
-                visualizer.display (filepath, ext);
+                visualizer.display (openPath, ext);
             callback();
         });
     }
@@ -206,12 +208,12 @@ async.parallel ([
     // ready to start the controller now
     controller = new Controller (controllerWindow, visualizer, window.console);
     // reveal current path
-    controller.currentPath = currentPath;
+    controller.currentPath = openDir;
     controller.openCurrent (function (err) {
         if (err)
             return;
         if (openPath)
-            controller.showImage (undefined, openPath);
+            controller.showImage (undefined, openPath, ext);
     });
 
     // wait for future file open operations
@@ -230,16 +232,15 @@ async.parallel ([
             else {
                 var pathinfo = path.parse (openPath);
                 controller.currentPath = pathinfo.dir;
-                var ext = pathinfo.ext.slice(1);
+                var ext = pathinfo.ext;
                 if (Object.hasOwnProperty.call (SHOW_EXT, ext)) {
                     controller.manualScrolling = false;
                     controller.selectedImagePath = openPath;
-                    controller.visualizer.display (openPath, SHOW_EXT[ext]);
-                    visualizerWindow.restore();
+                    visualizer.display (openPath, ext.slice (1));
                     visualizerWindow.focus();
                 }
             }
-        } catch (err) { console.log (err); return false; }
+        } catch (err) { return false; }
 
         controller.openCurrent(function (err) {
             if (err)
