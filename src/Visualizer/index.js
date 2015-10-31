@@ -21,6 +21,10 @@ function Visualizer (winnder, console) {
 
     var self = this;
 
+    winnder.window.onpopstate = function (state) {
+        console.log (state);
+    };
+
     // set up our DOM presence
     this.controlsElem = this.document.getElementById ('Controls');
     this.canvas = this.document.getElementById ('Display');

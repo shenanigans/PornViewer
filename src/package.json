@@ -5,13 +5,13 @@
   "dependencies": {
     "async": "^1.4.2",
     "cachew": "^0.1.1",
-    "gaze": "^0.5.2",
     "graceful-fs": "^4.1.2",
     "image-type": "^2.0.2",
     "infosex": "^0.1.3",
     "lwip": "^0.0.7",
     "mkdirp": "^0.5.1",
-    "scum": "0.0.1"
+    "scum": "0.0.1",
+    "surveil": "0.0.2"
   },
   "window": {
     "title": "PornMaster",

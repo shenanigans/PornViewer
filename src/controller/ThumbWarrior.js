@@ -172,3 +172,7 @@ module.exports.getThumb = function (dirpath, filename, callback) {
         ], writeNewThumb);
     });
 };
+
+module.exports.redoThumb = function (dirpath, filename, callback) {
+
+};
