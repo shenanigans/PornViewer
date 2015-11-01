@@ -79,100 +79,149 @@ module.exports.getThumb = function (dirpath, filename, callback) {
         if (thumbPath)
             return callback (undefined, 'file://'+thumbPath, pad, stats);
 
-        var finalImage;
-        function writeNewThumb (err) {
+        processThumb (filepath, function (err, finalImage, stats) {
             if (err)
                 return callback (err);
 
-            var width = finalImage.width();
-            var height = finalImage.height();
-            var finalHeight = finalImage.height();
 
             // write the thumbnail data to disc and update the thumbnail database
             finalImage.writeFile (newThumbPath, 'png', function (err) {
                 if (err)
                     return callback (err);
+                var finalHeight = finalImage.height();
                 if (finalHeight < THUMB_SIZE)
                     pad = Math.floor ((THUMB_SIZE - finalHeight) / 2);
                 db.transaction (function (tx) {
                     tx.executeSql (
                         'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type, size, created, modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                        [ dirpath, filename, newThumbPath, pad, imageType.ext, stats.size, stats.created, stats.modified ]
+                        [ dirpath, filename, newThumbPath, pad, stats.type, stats.size, stats.created, stats.modified ]
                     );
                 });
                 callback (undefined, 'file://' + newThumbPath, pad, stats);
             });
-        }
+        });
+    });
+};
 
-        stats = {};
-        async.parallel ([
-            function (callback) {
-                fs.readFile (filepath, function (err, buf) {
+function processThumb (filepath, callback) {
+    var finalImage;
+    var stats = {};
+    async.parallel ([
+        function (callback) {
+            fs.readFile (filepath, function (err, buf) {
+                if (err)
+                    return callback (err);
+                imageType = getType (buf);
+                stats.type = imageType.ext;
+                lwip.open (buf, imageType.ext, function (err, image) {
                     if (err)
                         return callback (err);
-                    imageType = getType (buf);
-                    stats.type = imageType.ext;
-                    lwip.open (buf, imageType.ext, function (err, image) {
-                        if (err)
-                            return callback (err);
-                        finalImage = image;
+                    finalImage = image;
 
-                        var width = image.width();
-                        var height = image.height();
+                    var width = image.width();
+                    var height = image.height();
 
-                        if (width <= THUMB_SIZE && height <= THUMB_SIZE)
-                            return callback();
+                    if (width <= THUMB_SIZE && height <= THUMB_SIZE)
+                        return callback();
 
-                        if (width == height)
-                            return image.resize (150, 150, function (err, image) {
-                                if (err)
-                                    return callback (err);
-                                finalImage = image;
-                                callback();
-                            });
-
-                        // var top, right, bottom, left, scale;
-                        var finalWidth, finalHeight;
-                        if (width > height) {
-                            var maxClip = width * MAX_CLIP;
-                            newWidth = Math.max (width - maxClip, height);
-                            newHeight = height;
-                            scale = THUMB_SIZE / newWidth;
-                        } else {
-                            var maxClip = width * MAX_CLIP;
-                            newHeight = Math.max (height - maxClip, width);
-                            newWidth = width;
-                            scale = THUMB_SIZE / newHeight;
-                        }
-
-                        // finalize the transform
-                        var batch = image.batch()
-                         .crop (newWidth, newHeight)
-                         .scale (scale)
-                         ;
-                        batch.exec (function (err, image) {
+                    if (width == height)
+                        return image.resize (150, 150, function (err, image) {
                             if (err)
                                 return callback (err);
                             finalImage = image;
                             callback();
                         });
+
+                    // var top, right, bottom, left, scale;
+                    var finalWidth, finalHeight;
+                    if (width > height) {
+                        var maxClip = width * MAX_CLIP;
+                        newWidth = Math.max (width - maxClip, height);
+                        newHeight = height;
+                        scale = THUMB_SIZE / newWidth;
+                    } else {
+                        var maxClip = width * MAX_CLIP;
+                        newHeight = Math.max (height - maxClip, width);
+                        newWidth = width;
+                        scale = THUMB_SIZE / newHeight;
+                    }
+
+                    // finalize the transform
+                    var batch = image.batch()
+                     .crop (newWidth, newHeight)
+                     .scale (scale)
+                     ;
+                    batch.exec (function (err, image) {
+                        if (err)
+                            return callback (err);
+                        finalImage = image;
+                        callback();
                     });
                 });
-            },
-            function (callback) {
-                fs.stat (filepath, function (err, filestats) {
-                    if (err)
-                        return callback (err);
-                    stats.size = filestats.size;
-                    stats.created = filestats.ctime.getTime();
-                    stats.modified = filestats.mtime.getTime();
-                    callback();
-                });
-            }
-        ], writeNewThumb);
+            });
+        },
+        function (callback) {
+            fs.stat (filepath, function (err, filestats) {
+                if (err)
+                    return callback (err);
+                stats.size = filestats.size;
+                stats.created = filestats.ctime.getTime();
+                stats.modified = filestats.mtime.getTime();
+                callback();
+            });
+        }
+    ], function (err) {
+        if (err)
+            return callback (err);
+        callback (undefined, finalImage, stats);
+    });
+}
+
+module.exports.redoThumb = function (dirpath, filename, thumbPath, callback) {
+    if (thumbPath)
+        thumbPath = thumbPath.replace (/^file:\/\//, '');
+    var image, stats;
+    async.parallel ([
+        function (callback) {
+            processThumb (path.join (dirpath, filename), function (err, finalImage, finalStats) {
+                if (err)
+                    return callback (err);
+                image = finalImage;
+                stats = finalStats;
+                callback();
+            });
+        },
+        function (callback) {
+            if (thumbPath)
+                return callback();
+            uid (function (newID) {
+                thumbPath = path.join (THUMBS_DIR, newID + '.png');
+                callback();
+            });
+        }
+    ], function (err) {
+        if (err)
+            return callback (err);
+
+        // write the thumbnail data to disc and update the thumbnail database
+        image.writeFile (thumbPath, 'png', function (err) {
+            if (err)
+                return callback (err);
+            var finalHeight = image.height();
+            if (finalHeight < THUMB_SIZE)
+                var pad = Math.floor ((THUMB_SIZE - finalHeight) / 2);
+
+            db.transaction (function (tx) {
+                tx.executeSql (
+                    'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type, size, created, modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [ dirpath, filename, thumbPath, pad, stats.type, stats.size, stats.created, stats.modified ]
+                );
+            });
+            callback (undefined, 'file://' + thumbPath, pad, stats);
+        });
     });
 };
 
-module.exports.redoThumb = function (dirpath, filename, callback) {
+module.exports.removeThumb = function (dirpath, filename, thumbPath) {
 
 };

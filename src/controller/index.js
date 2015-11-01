@@ -2,11 +2,11 @@
 var fs = require ('fs');
 var path = require ('path');
 var async = require ('async');
-var gaze = require ('gaze');
+var surveil = require ('surveil');
 var ThumbWarrior = require ('./ThumbWarrior');
 // var Collection = require ('./Collection');
 var Directory = require ('./Directory');
-var sorter = require ('./FilenameSorter');
+var FilenameSorter = require ('./FilenameSorter');
 
 var DRIVE_REGEX = /([\w ]+\w)  +(\w:)/;
 function Controller (winnder, visualizer, console) {
@@ -84,32 +84,38 @@ function Controller (winnder, visualizer, console) {
         var potemkin = [];
         Array.prototype.push.apply (potemkin, self.thumbsElem.children);
         var attr = 'data-'+self.sortBy;
-        potemkin.sort (function (able, baker) {
-            aVal = able.getAttribute (attr);
-            bVal = baker.getAttribute (attr);
-            if (aVal === null)
-                if (bVal === null)
-                    return 0;
-                else
-                    return 1;
-            else if (bVal === null)
-                return -1;
-            if (self.sortBy == 'name') {
+        if (self.sortBy == 'name')
+            potemkin.sort (function (able, baker) {
+                aVal = able.getAttribute (attr);
+                bVal = baker.getAttribute (attr);
+                if (aVal === null)
+                    if (bVal === null)
+                        return 0;
+                    else
+                        return 1;
+                else if (bVal === null)
+                    return -1;
+                return FilenameSorter (aVal, bVal);
+            });
+        else
+            potemkin.sort (function (able, baker) {
+                aVal = able.getAttribute (attr);
+                bVal = baker.getAttribute (attr);
+                if (aVal === null)
+                    if (bVal === null)
+                        return 0;
+                    else
+                        return 1;
+                else if (bVal === null)
+                    return -1;
+                aVal = Number (aVal);
+                bVal = Number (bVal);
                 if (aVal > bVal)
-                    return 1;
+                    return -1;
                 if (aVal == bVal)
                     return 0;
-                return -1;
-            }
-
-            aVal = Number (aVal);
-            bVal = Number (bVal);
-            if (aVal > bVal)
-                return -1;
-            if (aVal == bVal)
-                return 0;
-            return 1;
-        });
+                return 1;
+            });
         for (var i=0,j=potemkin.length; i<j; i++)
             self.thumbsElem.appendChild (potemkin[i]);
     });
@@ -202,7 +208,70 @@ Controller.prototype.openCurrent = function (listed) {
     this.select (this.currentPath, level.elem, listed);
 };
 
+Controller.prototype.createContainer = function (dirpath, fname) {
+    var newThumbContainer = this.document.createElement ('div');
+    newThumbContainer.setAttribute ('class', 'thumb');
+    newThumbContainer.setAttribute ('data-name', fname);
+    var imgPath = path.join (dirpath, fname);
+    newThumbContainer.setAttribute ('data-path', imgPath);
+
+    var self = this;
+    newThumbContainer.on ('click', function(){
+        self.showImage (newThumbContainer, imgPath);
+        self.manualScrolling = false;
+        self.revealThumb();
+    });
+    return newThumbContainer;
+};
+
+Controller.prototype.setupThumb = function (container, thumbPath, padHeight, stats) {
+    container.setAttribute ('data-type', stats.type);
+    container.setAttribute ('data-size', stats.size);
+    container.setAttribute ('data-created', stats.created);
+    container.setAttribute ('data-modified', stats.modified);
+
+    // drag handlers
+    container.setAttribute ('draggable', 'true');
+    container.on ('drag', function (event) {
+        event.stopPropagation();
+        container.addClass ('dragging');
+    });
+    var filename = container.getAttribute ('data-name');
+    var dragURL =
+        'image/'
+      + stats.type
+      + ':'
+      + filename
+      + ':file://'
+      + container.getAttribute ('data-path')
+      ;
+    container.on ('dragstart', function (event) {
+        event.stopPropagation();
+        // for dragging out of the app
+        event.dataTransfer.setData ('DownloadURL', dragURL);
+        // for dragging within the app
+        event.dataTransfer.setData (
+            'application/json',
+            JSON.stringify ({
+                type:   'image',
+                path:   path.join (dirpath, imageNames[imageI]),
+                name:   filename
+            })
+        );
+    });
+    container.on ('dragend', function(){
+        container.dropClass ('dragging');
+    });
+
+    var newThumb = this.document.createElement ('img');
+    newThumb.setAttribute ('src', thumbPath + '?' + (new Date()).getTime());
+    if (padHeight)
+        newThumb.setAttribute ('style', 'margin-top:'+padHeight+'px');
+    container.appendChild (newThumb);
+};
+
 var THUMBS_IN_FLIGHT = 12;
+var NUM_ATTRS = { created:true, modified:true, size:true };
 Controller.prototype.select = function (dirpath, elem, listed) {
     if (this.lastSelectedElem) {
         this.lastSelectedElem.dropClass ('selected');
@@ -212,21 +281,67 @@ Controller.prototype.select = function (dirpath, elem, listed) {
     this.lastSelectedElem = elem;
 
     var self = this;
-    if (this.gazer)
-        this.gazer.close();
-    this.gazer = new gaze.Gaze ('*', { cwd:dirpath });
-    this.gazer.on ('ready', function (watcher) { console.log ('ready', watcher); });
-    this.gazer.on ('added', function (filepath) {
-
+    if (this.watcher)
+        this.watcher.close();
+    var start = (new Date()).getTime();
+    this.watcher = surveil (dirpath);
+    this.watcher.on ('add', function (filepath) {
+        var newThumbContainer = self.createContainer (dirpath, filepath);
+        self.sortThumb (newThumbContainer);
+        ThumbWarrior.getThumb (dirpath, filepath, function (err, thumbPath, padHeight, stats) {
+            if (err) {
+                newThumbContainer.dispose();
+                if (newThumbContainer === self.selectedImage) {
+                    if (newThumbContainer.nextSibling)
+                        self.showImage (
+                            newThumbContainer.nextSibling,
+                            newThumbContainer.nextSibling.getAttribute ('data-path')
+                        );
+                    else if (newThumbContainer.previousSibling)
+                        self.showImage (
+                            newThumbContainer.previousSibling,
+                            newThumbContainer.previousSibling.getAttribute ('data-path')
+                        );
+                }
+                return callback();
+            }
+            self.setupThumb (newThumbContainer, thumbPath, padHeight, stats);
+            self.sortThumb (newThumbContainer);
+        });
     });
-    this.gazer.on ('changed', function (filepath) {
-
+    this.watcher.on ('change', function (filepath) {
+        var container, oldThumbPath;
+        for (var i=0,j=self.thumbsElem.children.length; i<j; i++)
+            if (self.thumbsElem.children[i].getAttribute ('data-name') == filepath) {
+                container = self.thumbsElem.children[i];
+                oldThumbPath = container.firstChild.getAttribute ('src').replace (/\?\d+$/, '');
+                break;
+            }
+        ThumbWarrior.redoThumb (self.selectedPath, filepath, oldThumbPath, function (err, thumbPath, padHeight, stats) {
+            if (err) {
+                console.log ('failed to redraw thumbnail for', filepath, err);
+                return;
+            }
+            container.firstChild.dispose();
+            console.log ('setting up', container, padHeight);
+            self.setupThumb (container, thumbPath, padHeight, stats);
+            self.sortThumb (container);
+        });
     });
-    this.gazer.on ('deleted', function (filepath) {
-
+    this.watcher.on ('remove', function (filepath) {
+        // linear scan for filepath and dispose the first matching container
+        ThumbWarrior.removeThumb (self.selectedPath, filepath);
+        for (var i=0,j=self.thumbsElem.children.length; i<j; i++)
+            if (self.thumbsElem.children[i].getAttribute ('data-name') == filepath) {
+                self.thumbsElem.children[i].dispose();
+                return;
+            }
     });
-    this.gazer.on ('renamed', function (newPath, oldPath) {
-
+    this.watcher.on ('error', function (err) {
+        console.log ('error', filepath);
+    });
+    this.watcher.on ('ready', function (err) {
+        console.log ('ready in', (new Date()).getTime() - start, 'ms');
     });
 
     // new <div.thumbs>
@@ -252,7 +367,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 listed (err);
             return;
         }
-        filenames.sort (sorter);
+        filenames.sort (FilenameSorter);
         var imageNames = [];
         var imageElems = [];
         filenames.forEach (function (fname) {
@@ -264,16 +379,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
              || fname.slice (-5) == '.jpeg'
             ) {
                 imageNames.push (fname);
-                var newThumbContainer = self.document.createElement ('div');
-                newThumbContainer.setAttribute ('class', 'thumb');
-                newThumbContainer.setAttribute ('data-name', fname);
-                var imgPath = path.join (dirpath, fname);
-                newThumbContainer.setAttribute ('data-path', imgPath);
-                newThumbContainer.on ('click', function(){
-                    self.showImage (newThumbContainer, imgPath);
-                    self.manualScrolling = false;
-                    self.revealThumb();
-                });
+                var newThumbContainer = self.createContainer (dirpath, fname);
                 self.thumbsElem.appendChild (newThumbContainer);
                 imageElems.push (newThumbContainer);
             }
@@ -305,95 +411,8 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                     return callback();
                 }
 
-                container.setAttribute ('data-type', stats.type);
-                container.setAttribute ('data-size', stats.size);
-                container.setAttribute ('data-created', stats.created);
-                container.setAttribute ('data-modified', stats.modified);
-
-                // drag handlers
-                container.setAttribute ('draggable', 'true');
-                container.on ('drag', function (event) {
-                    event.stopPropagation();
-                    container.addClass ('dragging');
-                });
-                var filename = container.getAttribute ('data-name');
-                var dragURL =
-                    'image/'
-                  + stats.type
-                  + ':'
-                  + filename
-                  + ':file://'
-                  + container.getAttribute ('data-path')
-                  ;
-                container.on ('dragstart', function (event) {
-                    event.stopPropagation();
-                    // for dragging out of the app
-                    event.dataTransfer.setData ('DownloadURL', dragURL);
-                    // for dragging within the app
-                    event.dataTransfer.setData (
-                        'application/json',
-                        JSON.stringify ({
-                            type:   'image',
-                            path:   path.join (dirpath, imageNames[imageI]),
-                            name:   filename
-                        })
-                    );
-                });
-                container.on ('dragend', function(){
-                    container.dropClass ('dragging');
-                });
-
-                var newThumb = self.document.createElement ('img');
-                newThumb.setAttribute ('src', thumbPath);
-                if (padHeight)
-                    newThumb.setAttribute ('style', 'margin-top:'+padHeight+'px');
-                container.appendChild (newThumb);
-
-                // sorting
-                if (self.sortBy == 'name')
-                    return callback();
-                container.dispose();
-                var attr = 'data-'+self.sortBy;
-                var value = stats[self.sortBy];
-                var thumbs = self.thumbsElem.children;
-                var other = thumbs[0].getAttribute (attr);
-                if (other === null || Number (other) <= value) {
-                    self.thumbsElem.insertBefore (container, thumbs[0]);
-                    return callback();
-                }
-                other = thumbs[thumbs.length-1].getAttribute (attr);
-                if (other !== null && Number (other) >= value) {
-                    self.thumbsElem.appendChild (container);
-                    return callback();
-                }
-                var middle = thumbs.length / 2;
-                var step = middle;
-                var next = Math.floor (middle);
-                var i;
-                var done = false;
-                do {
-                    step /= 2;
-                    i = next;
-                    other = thumbs[i].getAttribute (attr);
-                    if (other === null) {
-                        next = Math.floor (middle -= step);
-                        continue;
-                    }
-                    other = Number (other);
-                    if (other <= value) {
-                        var prior = thumbs[i-1].getAttribute (attr);
-                        if (prior === null || prior >= value) {
-                            self.thumbsElem.insertBefore (container, thumbs[i]);
-                            done = true;
-                            break;
-                        }
-                        next = Math.floor (middle -= step);
-                        continue;
-                    }
-                    next = Math.floor (middle += step);
-                } while (i != next);
-                if (!done)
-                    self.thumbsElem.insertBefore (container, thumbs[i+1]);
+                self.setupThumb (container, thumbPath, padHeight, stats);
+                self.sortThumb (container);
 
                 self.revealThumb();
                 callback();
@@ -402,6 +421,94 @@ Controller.prototype.select = function (dirpath, elem, listed) {
             window.localStorage.lastPath = dirpath;
         });
     });
+};
+
+Controller.prototype.sortThumb = function (container) {
+    if (this.thumbsElem.children.length == 1 && container.parentNode)
+        return;
+    var attr = 'data-'+this.sortBy;
+    var isNumAttr = Object.hasOwnProperty.call (NUM_ATTRS, this.sortBy);
+    var value = container.getAttribute (attr);
+    if (value) {
+        if (isNumAttr)
+            value = Number (value);
+    } else {
+        if (!container.parentNode)
+            this.thumbsElem.appendChild (container);
+        return;
+    }
+
+    container.dispose();
+
+    // test whether the container should go before or after the entire set
+    var thumbs = this.thumbsElem.children;
+    var other = thumbs[0].getAttribute (attr);
+    if (isNumAttr) {
+        if (other)
+            other = Number (other);
+        if (other === null || other <= value) {
+            this.thumbsElem.insertBefore (container, thumbs[0]);
+            return;
+        }
+    } else if (other === null || FilenameSorter (value, other) <= 0) {
+        this.thumbsElem.insertBefore (container, thumbs[0]);
+        return;
+    }
+    other = thumbs[thumbs.length-1].getAttribute (attr);
+    if (isNumAttr) {
+        if (other)
+            other = Number (other);
+        if (other !== null || other >= value) {
+            this.thumbsElem.appendChild (container);
+            return;
+        }
+    } else if (other !== null && FilenameSorter (other, value) <= 0) {
+        this.thumbsElem.appendChild (container);
+        return;
+    }
+
+    var middle = thumbs.length / 2;
+    var step = middle;
+    var next = Math.floor (middle);
+    var i;
+    var done = false;
+    do {
+        step /= 2;
+        i = next;
+        other = thumbs[i].getAttribute (attr);
+        if (other === null) {
+            next = Math.floor (middle -= step);
+            continue;
+        }
+        if (isNumAttr) {
+            other = Number (other);
+            if (other <= value) {
+                var prior = Number (thumbs[i-1].getAttribute (attr));
+                if (prior >= value) {
+                    this.thumbsElem.insertBefore (container, thumbs[i]);
+                    done = true;
+                    break;
+                }
+                next = Math.floor (middle -= step);
+                continue;
+            }
+            next = Math.floor (middle += step);
+        } else {
+            if (FilenameSorter (value, other) <= 0) {
+                var prior = thumbs[i-1].getAttribute (attr);
+                if (FilenameSorter (prior, value) <= 0) {
+                    this.thumbsElem.insertBefore (container, thumbs[i]);
+                    done = true;
+                    break;
+                }
+                next = Math.floor (middle -= step);
+                continue;
+            }
+            next = Math.floor (middle += step);
+        }
+    } while (i != next);
+    if (!done)
+        this.thumbsElem.insertBefore (container, thumbs[i+1]);
 };
 
 /**     @member/Function revealThumb
