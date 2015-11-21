@@ -1,9 +1,25 @@
 {
   "name": "PornViewer",
-  "version": "0.0.1",
+  "main": "index.html",
+  "version": "0.1.0",
   "dependencies": {
-    "gulp": "^3.9.0",
-    "gulp-watch": "^4.3.5",
-    "gulp-zip": "^3.0.2"
+    "async": "^1.4.2",
+    "cachew": "^0.1.1",
+    "graceful-fs": "^4.1.2",
+    "image-type": "^2.0.2",
+    "infosex": "^0.1.3",
+    "lwip": "^0.0.7",
+    "mkdirp": "^0.5.1",
+    "scum": "0.0.1",
+    "surveil": "0.0.3",
+    "wcjs-renderer": "git://github.com/shenanigans/wcjs-renderer#f83d1f1e4b56dcbe89a4454232f6ae08f4773a2a"
+  },
+  "window": {
+    "title": "PornMaster",
+    "icon": "icon.png",
+    "show": false
+  },
+  "webkit": {
+    "plugin": true
   }
 }

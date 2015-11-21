@@ -21,18 +21,18 @@ var visualizer, controller;
 
 // launch the Visualizer Window
 visualizerWindow = gui.Window.open ('./Visualizer/index.html', {
-    // toolbar:        false,
-    // frame:          false,
-    // transparent:    true,
+    toolbar:        false,
+    frame:          false,
+    transparent:    true,
     title:          'PornViewer',
     icon:           'icon.png'
 });
 
 // launch the Controller Window
 controllerWindow = gui.Window.open ('./Controller/index.html', {
-    // toolbar:        false,
-    // frame:          false,
-    // transparent:    true,
+    toolbar:        false,
+    frame:          false,
+    transparent:    true,
     title:          'PornController',
     icon:           'icon.png'
 });
@@ -117,8 +117,8 @@ if (!winState) {
 }
 
 // uncomment to show devtools at startup
-var Window = gui.Window.get();
-Window.on ('loaded', function(){ Window.showDevTools(); });
+// var Window = gui.Window.get();
+// Window.on ('loaded', function(){ Window.showDevTools(); });
 
 // basic cross-window event listeners
 controllerWindow.on ('close', function(){
@@ -189,6 +189,8 @@ async.parallel ([
             visualizer = new Visualizer (visualizerWindow, window.console);
             // keyboard navigation events
             visualizerWindow.window.document.body.on ('keydown', function (event) {
+                if (event.altKey || event.ctrlKey) // always addressed to the Visualizer
+                    return;
                 if (event.keyCode < 37 || event.keyCode > 40)
                     return;
                 controller.go (event.keyCode);

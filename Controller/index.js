@@ -9,11 +9,16 @@ var Directory = require ('./Directory');
 var FilenameSorter = require ('./FilenameSorter');
 
 var DRIVE_REGEX = /([\w ]+\w)  +(\w:)/;
+var KNOWN_EXT = [ '.jpg', '.jpeg', '.png', '.gif', '.wmv', '.avi', '.mkv', '.rm', '.mp4', '.m4v' ];
+var IMAGE_EXT = [ '.jpg', '.jpeg', '.png', '.gif' ];
+var IMAGE_EXT_MAP =  { '.jpg':true, '.jpeg':true, '.png':true, '.gif':true };
+
 function Controller (winnder, visualizer, console) {
     this.window = winnder;
     this.document = winnder.window.document;
     this.console = console;
     this.visualizer = visualizer;
+    this.warrior = new ThumbWarrior (this.document);
 
     // keyboard navigation events
     this.hostElem = this.document.getElementById ('Host');
@@ -144,7 +149,7 @@ function Controller (winnder, visualizer, console) {
             'wmic logicaldisk get description, deviceid',
             function (err, stdout, stderr) {
                 if (err) {
-                    self.console.log ('failed to enumerate drives', err);
+                    console.log ('failed to enumerate drives', err);
                     return;
                 }
                 driveinfo = stdout.split (/\r\n?/g).slice (1).filter (Boolean).map (function (drive) {
@@ -208,12 +213,33 @@ Controller.prototype.openCurrent = function (listed) {
     this.select (this.currentPath, level.elem, listed);
 };
 
-Controller.prototype.createContainer = function (dirpath, fname) {
+Controller.prototype.createContainer = function (dirpath, filename) {
+    // video?
+    var isVideo = true;
+    for (var i=0,j=IMAGE_EXT.length; i<j; i++) {
+        var ext = IMAGE_EXT[i];
+        if (filename.slice (-1 * ext.length) === ext) {
+            isVideo = false;
+            break;
+        }
+    }
+
     var newThumbContainer = this.document.createElement ('div');
-    newThumbContainer.setAttribute ('class', 'thumb');
-    newThumbContainer.setAttribute ('data-name', fname);
-    var imgPath = path.join (dirpath, fname);
+    newThumbContainer.setAttribute ('class', isVideo ? 'thumb video loading' : 'thumb loading');
+    newThumbContainer.setAttribute ('data-name', filename);
+    var imgPath = path.join (dirpath, filename);
     newThumbContainer.setAttribute ('data-path', imgPath);
+
+    var filenameElem = this.document.createElement ('div');
+    filenameElem.setAttribute ('class', 'filename');
+    var filenameTextElem = this.document.createElement ('div');
+    filenameTextElem.setAttribute ('class', 'text');
+    filenameTextElem.appendChild (this.document.createTextNode (filename));
+    filenameElem.appendChild (filenameTextElem);
+    var whiteoutElem = this.document.createElement ('div');
+    whiteoutElem.setAttribute ('class', 'whiteout');
+    filenameElem.appendChild (whiteoutElem);
+    newThumbContainer.appendChild (filenameElem);
 
     var self = this;
     newThumbContainer.on ('click', function(){
@@ -254,7 +280,7 @@ Controller.prototype.setupThumb = function (container, thumbPath, padHeight, sta
             'application/json',
             JSON.stringify ({
                 type:   'image',
-                path:   path.join (dirpath, imageNames[imageI]),
+                path:   container.getAttribute ('data-path'),
                 name:   filename
             })
         );
@@ -263,11 +289,14 @@ Controller.prototype.setupThumb = function (container, thumbPath, padHeight, sta
         container.dropClass ('dragging');
     });
 
-    var newThumb = this.document.createElement ('img');
-    newThumb.setAttribute ('src', thumbPath + '?' + (new Date()).getTime());
-    if (padHeight)
-        newThumb.setAttribute ('style', 'margin-top:'+padHeight+'px');
-    container.appendChild (newThumb);
+    if (thumbPath) {
+        container.dropClass ('loading');
+        var newThumb = this.document.createElement ('img');
+            newThumb.setAttribute ('src', thumbPath + '?' + (new Date()).getTime());
+        if (padHeight)
+            newThumb.setAttribute ('style', 'margin-top:'+padHeight+'px');
+        container.appendChild (newThumb);
+    }
 };
 
 var THUMBS_IN_FLIGHT = 12;
@@ -288,7 +317,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
     this.watcher.on ('add', function (filepath) {
         var newThumbContainer = self.createContainer (dirpath, filepath);
         self.sortThumb (newThumbContainer);
-        ThumbWarrior.getThumb (dirpath, filepath, function (err, thumbPath, padHeight, stats) {
+        self.warrior.getThumb (dirpath, filepath, function (err, thumbPath, padHeight, stats) {
             if (err) {
                 newThumbContainer.dispose();
                 if (newThumbContainer === self.selectedImage) {
@@ -314,23 +343,24 @@ Controller.prototype.select = function (dirpath, elem, listed) {
         for (var i=0,j=self.thumbsElem.children.length; i<j; i++)
             if (self.thumbsElem.children[i].getAttribute ('data-name') == filepath) {
                 container = self.thumbsElem.children[i];
-                oldThumbPath = container.firstChild.getAttribute ('src').replace (/\?\d+$/, '');
+                oldThumbPath = container.firstChild.getAttribute ('src');
+                if (oldThumbPath)
+                    oldThumbPath.replace (/\?\d+$/, '');
                 break;
             }
-        ThumbWarrior.redoThumb (self.selectedPath, filepath, oldThumbPath, function (err, thumbPath, padHeight, stats) {
+        self.warrior.redoThumb (self.selectedPath, filepath, oldThumbPath, function (err, thumbPath, padHeight, stats) {
             if (err) {
                 console.log ('failed to redraw thumbnail for', filepath, err);
                 return;
             }
             container.firstChild.dispose();
-            console.log ('setting up', container, padHeight);
             self.setupThumb (container, thumbPath, padHeight, stats);
             self.sortThumb (container);
         });
     });
     this.watcher.on ('remove', function (filepath) {
         // linear scan for filepath and dispose the first matching container
-        ThumbWarrior.removeThumb (self.selectedPath, filepath);
+        self.warrior.removeThumb (self.selectedPath, filepath);
         for (var i=0,j=self.thumbsElem.children.length; i<j; i++)
             if (self.thumbsElem.children[i].getAttribute ('data-name') == filepath) {
                 self.thumbsElem.children[i].dispose();
@@ -338,11 +368,11 @@ Controller.prototype.select = function (dirpath, elem, listed) {
             }
     });
     this.watcher.on ('error', function (err) {
-        console.log ('error', filepath);
+        console.log ('watcher error', filepath);
     });
-    this.watcher.on ('ready', function (err) {
-        console.log ('ready in', (new Date()).getTime() - start, 'ms');
-    });
+    // this.watcher.on ('ready', function (err) {
+    //     console.log ('watcher ready in', (new Date()).getTime() - start, 'ms');
+    // });
 
     // new <div.thumbs>
     this.selectedPath = dirpath;
@@ -370,54 +400,108 @@ Controller.prototype.select = function (dirpath, elem, listed) {
         filenames.sort (FilenameSorter);
         var imageNames = [];
         var imageElems = [];
+        var videoNames = [];
+        var videoElems = [];
         filenames.forEach (function (fname) {
-            var lastThree = fname.slice (-4);
-            if (
-                lastThree == '.jpg'
-             || lastThree == '.gif'
-             || lastThree == '.png'
-             || fname.slice (-5) == '.jpeg'
-            ) {
-                imageNames.push (fname);
-                var newThumbContainer = self.createContainer (dirpath, fname);
-                self.thumbsElem.appendChild (newThumbContainer);
-                imageElems.push (newThumbContainer);
+            for (var i=0,j=KNOWN_EXT.length; i<j; i++) {
+                var ext = KNOWN_EXT[i];
+                if (fname.slice (-1*ext.length) === ext) {
+                    var newThumbContainer = self.createContainer (dirpath, fname);
+                    self.thumbsElem.appendChild (newThumbContainer);
+                    if (Object.hasOwnProperty.call (IMAGE_EXT_MAP, ext)) {
+                        imageNames.push (fname);
+                        imageElems.push (newThumbContainer);
+                    } else {
+                        videoNames.push (fname);
+                        videoElems.push (newThumbContainer);
+                    }
+                    return;
+                }
             }
         });
 
         if (listed)
             listed();
 
-        async.timesLimit (imageNames.length, THUMBS_IN_FLIGHT, function (imageI, callback) {
-            ThumbWarrior.getThumb (dirpath, imageNames[imageI], function (err, thumbPath, padHeight, stats) {
-                if (self.selectedPath != dirpath)
-                    return callback (new Error ('cancelled'));
-                var container = imageElems[imageI];
-                if (err) {
-                    self.console.log ('thumbnail failed', imageNames[imageI], err);
-                    container.dispose();
-                    if (container === self.selectedImage) {
-                        if (container.nextSibling)
-                            self.showImage (
-                                container.nextSibling,
-                                container.nextSibling.getAttribute ('data-path')
-                            );
-                        else if (container.previousSibling)
-                            self.showImage (
-                                container.previousSibling,
-                                container.previousSibling.getAttribute ('data-path')
-                            );
-                    }
-                    return callback();
-                }
+        async.parallel ([
+            function (callback) {
+                async.timesLimit (
+                    imageNames.length,
+                    THUMBS_IN_FLIGHT,
+                    function (imageI, callback) {
+                        var container = imageElems[imageI];
+                        self.warrior.getThumb (dirpath, imageNames[imageI], function (err, thumbPath, padHeight, stats) {
+                            if (self.selectedPath != dirpath)
+                                return callback (new Error ('cancelled'));
+                            if (err) {
+                                self.console.log ('thumbnail failed', imageNames[imageI], err, thumbPath, padHeight, stats);
+                                if (!stats) {
+                                    container.dispose();
+                                    if (container === self.selectedImage) {
+                                        if (container.nextSibling)
+                                            self.showImage (
+                                                container.nextSibling,
+                                                container.nextSibling.getAttribute ('data-path')
+                                            );
+                                        else if (container.previousSibling)
+                                            self.showImage (
+                                                container.previousSibling,
+                                                container.previousSibling.getAttribute ('data-path')
+                                            );
+                                    }
+                                    return callback();
+                                }
+                            }
 
-                self.setupThumb (container, thumbPath, padHeight, stats);
-                self.sortThumb (container);
+                            self.setupThumb (container, thumbPath, padHeight, stats);
+                            self.sortThumb (container);
 
-                self.revealThumb();
-                callback();
-            });
-        }, function(){
+                            self.revealThumb();
+                            callback();
+                        });
+                    },
+                    callback
+                );
+            },
+            function (callback) {
+                async.timesSeries (
+                    videoNames.length,
+                    function (videoI, callback) {
+                        var container = videoElems[videoI];
+                        self.warrior.getThumb (dirpath, videoNames[videoI], function (err, thumbPath, padHeight, stats) {
+                            if (self.selectedPath != dirpath)
+                                return callback (new Error ('cancelled'));
+                            if (err) {
+                                self.console.log ('thumbnail failed', videoNames[videoI], err, stats);
+                                if (!stats) {
+                                    container.dispose();
+                                    if (container === self.selectedImage) {
+                                        if (container.nextSibling)
+                                            self.showImage (
+                                                container.nextSibling,
+                                                container.nextSibling.getAttribute ('data-path')
+                                            );
+                                        else if (container.previousSibling)
+                                            self.showImage (
+                                                container.previousSibling,
+                                                container.previousSibling.getAttribute ('data-path')
+                                            );
+                                    }
+                                    return callback();
+                                }
+                            }
+
+                            self.setupThumb (container, thumbPath, padHeight, stats);
+                            self.sortThumb (container);
+
+                            self.revealThumb();
+                            callback();
+                        });
+                    },
+                    callback
+                );
+            }
+        ], function (err) {
             window.localStorage.lastPath = dirpath;
         });
     });

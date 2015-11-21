@@ -3,12 +3,14 @@
 
   <?if $(var.Platform) = x86 ?>
     <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+    <?define PlatformVCRedistMMPath = "c:\Program Files (x86)\Common Files\Merge Modules\Microsoft_VC120_CRT_x64.msm" ?>
   <?else ?>
     <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+    <?define PlatformVCRedistMMPath = "c:\Program Files (x86)\Common Files\Merge Modules\Microsoft_VC120_CRT_x86.msm" ?>
   <?endif ?>
 
   <Product Id="4d5791d8-d5f5-46b7-bf16-2221771712f9" Name="PornViewer" Language="1033" Version="0.0.1" Manufacturer="Schmidty's Superior Solutions" UpgradeCode="8527e354-e187-4921-8af5-de92e1004b4a" >
-    <Package InstallerVersion="200" InstallScope="perMachine" Compressed="yes" Comments="Windows Installer Package" />
+    <Package InstallerVersion="405" InstallScope="perMachine" Compressed="yes" Comments="Windows Installer Package" />
     <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
     <Icon Id="ProductIcon" SourceFile="icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="ProductIcon"/>
@@ -21,7 +23,7 @@
         <Directory Id="INSTALLDIR" Name="PornViewer">
           <Component Id="ApplicationFiles" Guid="8527e354-e187-4921-8af5-de92e1004b4a">
             <CreateFolder />
-            <File Id="Executable" Source="build\$(var.Platform)\nw.exe" Vital="yes" KeyPath="yes" />
+            <File Id="Executable" Source="resources\$(var.Platform)\nw.exe" Vital="yes" KeyPath="yes" />
             <File Id="Support0" Source="resources\$(var.Platform)\d3dcompiler_47.dll" />
             <File Id="Support1" Source="resources\$(var.Platform)\ffmpegsumo.dll" />
             <File Id="Support2" Source="resources\$(var.Platform)\icudtl.dat" />
@@ -30,7 +32,46 @@
             <File Id="Support5" Source="resources\$(var.Platform)\pdf.dll" />
             <File Id="Support6" Source="resources\$(var.Platform)\nw.pak" />
             <File Id="Support7" Source="resources\$(var.Platform)\nwjc.exe" />
+            <File Id="Application0" Source="close.png" />
+            <File Id="Application1" Source="index.html" />
+            <File Id="Application2" Source="index.js" />
+            <File Id="Application3" Source="icon.png" />
+            <File Id="Application4" Source="maximize.png" />
+            <File Id="Application5" Source="minimize.png" />
+            <File Id="Application6" Source="restore.png" />
+            <File Id="Application7" Source="package.json" />
           </Component>
+          <Directory Name="Controller" Id="ControllerDirectory">
+            <Component Id="ControllerFiles" Guid="a981e01a-4467-46f7-bd1a-08e42e2f8ab1">
+              <CreateFolder />
+              <File Id="Application_Controller0" Source="Controller\Collection.js" />
+              <File Id="Application_Controller1" Source="Controller\Directory.js" />
+              <File Id="Application_Controller2" Source="Controller\directory.png" />
+              <File Id="Application_Controller3" Source="Controller\directory_open.png" />
+              <File Id="Application_Controller4" Source="Controller\FilenameSorter.js" />
+              <File Id="Application_Controller5" Source="Controller\index.css" />
+              <File Id="Application_Controller6" Source="Controller\index.html" />
+              <File Id="Application_Controller7" Source="Controller\index.js" />
+              <File Id="Application_Controller8" Source="Controller\package.json" />
+              <File Id="Application_Controller9" Source="Controller\scum.js" />
+              <File Id="Application_Controller10" Source="Controller\ThumbWarrior.js" />
+              <File Id="Application_Controller11" Source="Controller\video_overlay.png" />
+              <File Id="Application_Controller12" Source="Controller\video.png" />
+            </Component>
+          </Directory>
+          <Directory Name="Visualizer" Id="VisualizerDirectory">
+            <Component Id="VisualizerFiles" Guid="e4eaaaf5-abba-490c-8557-bc42a69fe5e2">
+              <CreateFolder />
+              <File Id="Application_Visualizer0" Source="Visualizer\drag.png" />
+              <File Id="Application_Visualizer1" Source="Visualizer\index.css" />
+              <File Id="Application_Visualizer3" Source="Visualizer\index.html" />
+              <File Id="Application_Visualizer4" Source="Visualizer\index.js" />
+              <File Id="Application_Visualizer5" Source="Visualizer\mute.png" />
+              <File Id="Application_Visualizer6" Source="Visualizer\muted.png" />
+              <File Id="Application_Visualizer7" Source="Visualizer\package.json" />
+              <File Id="Application_Visualizer8" Source="Visualizer\VideoManager.js" />
+            </Component>
+          </Directory>
           <Component Id="JpgAssociation" Guid="11f4eca4-f2b7-4a1d-b6a2-2a45280a5e9c">
             <CreateFolder />
             <ProgId Id="jpgType" Description="jpg images" Icon="Executable">
@@ -83,9 +124,20 @@
         </Directory>
       </Directory>
     </Directory>
+
+    <DirectoryRef Id="TARGETDIR">
+      <Merge Id="VCRedist" SourceFile="$(var.PlatformVCRedistMMPath)" DiskId="1" Language="0" />
+    </DirectoryRef>
+
     <Feature Id="Complete" Title="PornViewer 0.0.1" Description="The complete package." Display="expand" Level="1" ConfigurableDirectory="INSTALLDIR">
       <ComponentRef Id="ApplicationFiles" />
       <ComponentRef Id="AppDataDirectory" />
+      <ComponentRef Id="ControllerFiles" />
+      <ComponentRef Id="VisualizerFiles" />
+      <ComponentGroupRef Id="NodeModules"/>
+      <Feature Id="VCRedistFeature" Title="Visual C++ 12.0 Runtime" AllowAdvertise="no" Display="hidden" Level="1">
+        <MergeRef Id="VCRedist" />
+      </Feature>
       <Feature Id="StartMenuFeature" Level="1" Title="Start Menu shortcuts" Description="Add PornViewer to the Start Menu" AllowAdvertise="no" InstallDefault="local">
         <ComponentRef Id="ApplicationShortcuts" />
       </Feature>

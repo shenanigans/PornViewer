@@ -236,17 +236,22 @@ body {
     text-align: center;
     vertical-align: top;
     padding: 1px;
+    position: relative;
+    overflow: hidden;
 }
 
 .thumbs .bogus {
     display: none;
 }
 
-.thumb:empty {
+.thumb.loading {
     background-image: url('../icon.png');
     background-size: 60%;
     background-position: center;
     background-repeat: no-repeat;
+}
+.thumb.video.loading {
+    background-image: url('video.png');
 }
 
 .thumb img {
@@ -260,6 +265,39 @@ body {
 
 .thumb.selected img {
     opacity: 0.8;
+}
+
+.thumb .filename {
+    display: none;
+    position: absolute;
+    right: 0;
+    bottom: 0px;
+    height: 8px;
+    left: 1px;
+    font-size: 12px;
+    padding: 12px 0 0px 1px;
+    background-color: #fff;
+    text-align: left;
+    width: 5000px;
+}
+
+.filename .text {
+    display: inline-block;
+    min-width: 150px;
+    text-align: center;
+}
+
+.filename .whiteout {
+    position: absolute;
+    top: 0;
+    left: 112px;
+    bottom: 0;
+    width: 40px;
+    background: -webkit-linear-gradient(left, transparent, white);
+}
+
+.thumb:hover .filename, .thumb.selected .filename, .thumb.video .filename {
+    display: block;
 }
 
 .thumb.dragging {

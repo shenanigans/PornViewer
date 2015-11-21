@@ -1,0 +1,344 @@
+
+html {
+    image-rendering: optimizeQuality;
+    font-family: tahoma, sans-serif;
+}
+
+#Display {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+#Dancer {
+    position: fixed;
+}
+
+#Dancer img {
+    width: 100%;
+    height: 100%;
+}
+
+.image #ImageControls {
+    display: block;
+    height: 23px;
+}
+
+#VLC {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: none;
+}
+
+#VLC.active {
+    display: block;
+}
+
+#VideoContainer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    text-align: center;
+}
+
+#VideoContainer canvas { }
+
+.controlPane {
+    display: none;
+    position: absolute;
+    right: 140px;
+    bottom: 0;
+    left: 34px;
+    height: 2em;
+}
+
+.controlPane > * {
+    -webkit-app-region: no-drag;
+}
+
+.video #VideoControls {
+    display: block;
+}
+
+#PlayPause {
+    width: 40px;
+    height: 32px;
+    cursor: pointer;
+    position: relative;
+    background-color: #880198;
+}
+
+#PlayButton {
+    position: absolute;
+    top: 8px;
+    left: 15px;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-left: 15px solid #FFF;
+}
+
+#PlayPause .pause {
+    display: none;
+    position: absolute;
+    top: 9px;
+    bottom: 4px;
+    width: 3px;
+    background-color: #FFF;
+}
+
+#PauseButtonZero {
+    left: 14px;
+}
+
+#PauseButtonOne {
+    right: 14px;
+}
+
+#PlayPause.playing #PlayButton {
+    display: none;
+
+}
+
+#PlayPause.playing .pause {
+    display: block;
+}
+
+#SeekBar {
+    position: absolute;
+    top: 11px;
+    right: 217px;
+    bottom: 6px;
+    left: 3em;
+    background-color: #FFB2FC;
+    cursor: pointer;
+}
+
+#SeekCaret {
+    position: absolute;
+    width: 0;
+    left: 0;
+}
+
+#SeekCaret div {
+    position: absolute;
+    cursor: -webkit-grab;
+    border: 6px solid #64006F;
+    width: 3px;
+    height: 15px;
+    top: -6px;
+    left: -3px;
+}
+
+#MuteIndicator {
+    position: absolute;
+    top: 11px;
+    right: 180px;
+    height: 17px;
+}
+
+#VolumeBar {
+    position: absolute;
+    top: 9px;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-bottom: 19px solid #FFB2FC;
+    border-left: 170px solid transparent;
+    cursor: pointer;
+}
+
+#VolumeCaret {
+    position: absolute;
+    width: 0;
+    left: -170px;
+}
+
+#VolumeCaret div {
+    position: absolute;
+    left: -4px;
+    width: 8px;
+    height: 27px;
+    background-color: #64006F;
+    top: -4px;
+    cursor: -webkit-grab;
+}
+
+.nocurse {
+    cursor: none;
+}
+
+#Controls {
+    -webkit-app-region: drag;
+    -webkit-user-select: none;
+    padding: 4px;
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    background-color: #E600DD;
+    transition: opacity 0.5s ease-out;
+    opacity: 0;
+    color: #fff;
+    font-family: verdana;
+    text-align: center;
+    height: 19px;
+}
+
+#EventScreen {
+    -webkit-app-region: no-drag;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+#Controls select, #Controls input {
+    -webkit-app-region: no-drag;
+    vertical-align: top;
+}
+
+#Controls label {
+}
+
+#Controls input {
+    width: 5em;
+}
+
+#Controls:hover, #Controls.visible {
+    opacity: 1;
+}
+
+#Controls:hover #EventScreen, #Controls.visible #EventScreen {
+    display: none;
+}
+
+#Drag {
+    float: left;
+    height: 1.5em;
+    margin-top: -0.1em;
+}
+
+.controlButton {
+    float: right;
+    height: 1.7em;
+    width: 2.5em;
+    margin: -0.2em 0 0 0.1em;
+    transition: background-color 0.3s ease-in-out;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    background-position: center;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+.controlButton:hover {
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+#Minimize {
+    background-image: url('../minimize.png');
+}
+
+#Maximize {
+    background-image: url('../maximize.png');
+}
+
+#Maximize.restore {
+    background-image: url('../restore.png');
+}
+
+#Close {
+    background-image: url('../close.png');
+}
+
+#Close:hover {
+    background-color: rgba(255, 0, 0, 0.62);
+}
+
+#ContextMenu {
+    display: none;
+    position: fixed;
+    top: 50px;
+    left: 460px;
+    font-size: 16px;
+}
+
+#ContextMenu > * {
+    background-color: #fff;
+    box-shadow: 0 0 1.7em rgba(0, 0, 0, 0.27);
+}
+
+#ContextMenuKeyboardTarget {
+    visibility: hidden;
+    position: absolute;
+    left: -9001px;
+}
+
+.CX_OptionList {
+    display: none;
+    width: 160px;
+    height: 100%;
+}
+
+.CX_OptionList.active {
+    display: inline-block;
+}
+
+.CX_Option {
+    padding: 4px 5px;
+    border-bottom: 1px solid #D5D5D5;
+    cursor: pointer;
+    transition: background-color 0.3s ease-out;
+}
+
+.CX_Section {
+    padding: 4px 5px;
+    border-bottom: 1px solid #D5D5D5;
+    cursor: pointer;
+    transition: background-color 0.3s ease-out;
+}
+
+.CX_Option.active, .CX_Option.active {
+    background-color: #FF5CF9;
+}
+
+.CX_Section_Children {
+    display: none;
+}
+
+.CX_Section.active .CX_Section_Children {
+    display: block;
+}
+
+.CX_Detail_Area {
+    display: none;
+    width: 350px;
+    height: 100%;
+}
+
+.CX_Detail_Area.active {
+    display: inline-block;
+}
+
+#CX_Options_Video {
+
+}
+
+#CX_Details_Time {
+    min-height: 100px;
+}
+
+.CX_Option:hover, .CX_Section:hover {
+    background-color: #FFE0FE;
+}
