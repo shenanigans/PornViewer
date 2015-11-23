@@ -3,13 +3,13 @@
 
   <?if $(var.Platform) = x86 ?>
     <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
-    <?define PlatformVCRedistMMPath = "c:\Program Files (x86)\Common Files\Merge Modules\Microsoft_VC120_CRT_x64.msm" ?>
+    <?define PlatformVCRedistMMPath = "c:\Program Files (x86)\Common Files\Merge Modules\Microsoft_VC120_CRT_x86.msm" ?>
   <?else ?>
     <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
-    <?define PlatformVCRedistMMPath = "c:\Program Files (x86)\Common Files\Merge Modules\Microsoft_VC120_CRT_x86.msm" ?>
+    <?define PlatformVCRedistMMPath = "c:\Program Files (x86)\Common Files\Merge Modules\Microsoft_VC120_CRT_x64.msm" ?>
   <?endif ?>
 
-  <Product Id="4d5791d8-d5f5-46b7-bf16-2221771712f9" Name="PornViewer" Language="1033" Version="0.0.1" Manufacturer="Schmidty's Superior Solutions" UpgradeCode="8527e354-e187-4921-8af5-de92e1004b4a" >
+  <Product Id="4d5791d8-d5f5-46b7-bf16-2221771712f9" Name="PornViewer" Language="1033" Version="0.1.0" Manufacturer="Schmidty's Superior Solutions" UpgradeCode="8527e354-e187-4921-8af5-de92e1004b4a" >
     <Package InstallerVersion="405" InstallScope="perMachine" Compressed="yes" Comments="Windows Installer Package" />
     <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
     <Icon Id="ProductIcon" SourceFile="icon.ico" />

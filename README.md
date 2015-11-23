@@ -27,7 +27,7 @@ Also:
 
 ## Caveats
 You're gonna use a healthy chunk of your OS drive for thumbnails. Think 1-5 gigabytes. If you ever
-run the uninstaller and it takes a solid minute, that's the thumbnails.
+run the uninstaller and it takes a solid three minutes, that's the thumbnails.
 
 Windows users, think carefully before activating the file association options during install. The
 associated image type's non-thumbnail icon will become a lil dickbutt and double-clicking image files
@@ -49,15 +49,13 @@ The startup time is slightly slower than the x64 version, but I'm working on it.
 I've been having a problem with the `lwip` module, it's supposed to statically bind its own libpng
 but it still somehow gets confused by the older version dynamically bound by node-webkit. Probably I
 need to build my own node-webkit with libpng bound statically. If anybody has some thoughts on this
-I'd love to hear them. Now that there's video support involved I'm kinda scared to even get back
-into this.
+I'd love to hear them. Now that there's video support involved I'm kinda intimidated by this whole
+problem so it might be a while before I get a linux build up.
 
 ### OSX
-Somebody with one of those dumbass apple computers is welcome to figure out a build for them. Mine
-bricked out when its stupid battery died. And hey seriously isn't that `.dmg` thing weird as an
-install process? Drag this shit into here. Random scripts go off unexpectedly. That's the sleak,
-intuitive way to install things. See the [build instructions](#building-pornviewer) near the bottom
-if you're thinking of helping out, you communist filth.
+My dumbass apple laptop bricked out when its battery died. I should be able to get this figured out
+on my brother-in-law's MacBrick on or around thanksgiving. If you wanna try it yourself, see the
+[build instructions](#building-pornviewer) near the bottom.
 
 
 ## Infrequently Asked Questions
@@ -66,9 +64,18 @@ No. You're welcome to fork this repo and make one. If you want my opinion I thin
 `lolphotos`.
 
 #### What's next for PornViewer?
- * fake directories called Collections
- * view images from multiple directories or Collections
- * "cascade view"
+ * fake directories called collections
+ * browse from multiple directories or collections at once
+ * "cascade view" will tile images (including gifs) to fill the entire monitor with scrolling porn
+ * "random" sort mode, what is even wrong with me that I've forgotten this feature for so long
+
+
+## Known Issues
+ * Several things in need of throbbers or success/failure indicators
+ * Lots of things drag selectable that shouldn't be
+ * busy/slow hard drives tend to cause the first video thumbnail to timeout
+ * the lil speaker icon, and especially its brother the mute icon, have fucked up opacity
+ * first attempt to drag an image (per session) always fails
 
 
 ## Building PornViewer
@@ -78,31 +85,45 @@ recommend just using the lovely [command-line git installer](https://git-scm.com
 will need your platform's support files for `gyp` builds. That's build-essential or yummy equivalent
 on linux, xcode on osx and visual studio on windows.
 
-Clone this repository and download the most recent stable version of [node-webkit](https://github.com/nwjs/nw.js#downloads).
-Unzip it, put it in the repository directory and rename it `nw`. If you're building a windows msi,
-copy the contents of the `nw` directory into `resources\x64\` and/or `resources\x86\`.
+Clone this repository and download the most recent stable version of
+[node-webkit](https://github.com/nwjs/nw.js#downloads). Unzip it, put it in the repository
+directory and rename it `nw`. If you're building a windows msi, copy the contents of the `nw`
+directory into `resources\x64\` or `resources\x86\`.
 
 Then do this stuff:
 ```shell
 cd PornViewer
 npm install
 npm install -g nw-gyp
+```
+
+#### Setting Up [`lwip`](https://github.com/EyalAr/lwip)
+```shell
 cd node_modules/lwip
 nw-gyp clean
 nw-gyp configure --target=0.12.3
-# on windows use --msvs_version=2013
-# for x86 use --arch=ia32
+# on windows add --msvs_version=2013
+# for x86 add --arch=ia32
 nw-gyp build
-# for x86 use --arch=ia32
+# for x86 add --arch=ia32
 cd ../../
 ```
+
+#### Setting Up [`webchimera.js`](https://github.com/RSATom/WebChimera.js)
+If you're very very lucky, this will "just work". If not, you'll need to deal with customizing your
+distribution of the `webchimera.js` package. On Win10 x64 I habitually use
+[`wcjs-prebuilt`](https://github.com/Ivshti/wcjs-prebuilt) and just rename its directory. Note that
+on windows x64 you currently need to manually copy a couple DLL files and a directory of small
+binaries (`plugins`) from the `Program Files\VideoLAN\VLC\` directory into `wcjs-prebuilt\bin` to
+replace the malformed copies found there.
 
 Finally, use either `launch.sh` or `launch.vbs` to start the application.
 
 #### Building an MSI
 You'll need [WiX](http://wixtoolset.org/). Use a DOS shell to run `winbuild.bat`. This will build
 one or two `.msi` files in `build\` depending on which architecture(s) have been prepared
-completely.
+completely. Commands for an arch with no resource files provided will fail quickly and fairly
+quietly.
 
 
 ## LICENSE
