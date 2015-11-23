@@ -1,5 +1,5 @@
 # PornViewer
-An image viewer for mission-critical applications. Designed to provide a pleasurable viewing
+An image and video viewer for mission-critical applications. Designed to provide a pleasurable viewing
 experience. Theoretically cross-platform, currently available on Windows.
 
 ![screenshot](http://i.imgur.com/MVzG6xH.jpg)
@@ -111,13 +111,15 @@ cd ../../
 
 #### Setting Up [`webchimera.js`](https://github.com/RSATom/WebChimera.js)
 If you're very very lucky, this will "just work". If not, you'll need to deal with customizing your
-distribution of the `webchimera.js` package. On Win10 x64 I habitually use
-[`wcjs-prebuilt`](https://github.com/Ivshti/wcjs-prebuilt) and just rename its directory. Note that
-on windows x64 you currently need to manually copy a couple DLL files and a directory of small
-binaries (`plugins`) from the `Program Files\VideoLAN\VLC\` directory into `wcjs-prebuilt\bin` to
-replace the malformed copies found there.
+distribution of the `webchimera.js` package. You'll find it at 
+`node_modules\wcjs-renderer\node_modules\webchimera.js`.
+On Win10 x64 I habitually use [`wcjs-prebuilt`](https://github.com/Ivshti/wcjs-prebuilt) and just 
+rename its directory. Note that on windows x64 you currently need to manually copy a couple DLL 
+files and a directory of small binaries (`plugins`) from the `Program Files\VideoLAN\VLC\` 
+directory into `wcjs-prebuilt\bin` to replace the malformed copies found there.
 
-Finally, use either `launch.sh` or `launch.vbs` to start the application.
+#### Launching
+Use either `launch.sh` or `launch.vbs` to start the application from the source directory.
 
 #### Building an MSI
 You'll need [WiX](http://wixtoolset.org/). Use a DOS shell to run `winbuild.bat`. This will build
