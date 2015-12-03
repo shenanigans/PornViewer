@@ -10,6 +10,7 @@ var scum = require ('scum');
 var SHOW_EXT = { '.jpg':'jpg', '.jpeg':'jpg', '.gif':'gif', '.png':'png' };
 var CONTROLLER_BASE_WIDTH = 295;
 var CONTROLLER_MIN_WIDTH = CONTROLLER_BASE_WIDTH + 150;
+var CONTROLS_TIMEOUT = 1500;
 
 //
 // Presently only a single display mode is supported - the dual window display mode. To rehome the
@@ -159,6 +160,41 @@ if (!openDir && !(openDir = window.localStorage.lastPath))
         process.platform = 'win32' ? 'USERPROFILE' : 'HOME'
     ];
 
+function handleKey (event) {
+    if (!event.altKey && !event.ctrlKey) {
+        if (event.keyCode >= 37 && event.keyCode <= 40)
+            controller.go (event.keyCode);
+        else if (event.keyCode == 32)
+            visualizer.playpause();
+        return false;
+    }
+
+    if (!visualizer.vlc)
+        return false;
+    var timeShift;
+    switch (event.keyCode) {
+        case 37:
+            timeShift = 30 * 1000 * -1;
+            break;
+        case 38:
+            timeShift = 60 * 1000;
+            break;
+        case 39:
+            timeShift = 30 * 1000;
+            break;
+        case 40:
+            timeShift = 60 * 1000 * -1;
+            break;
+        default:
+            return false;
+    }
+    if (event.shiftKey)
+        timeShift *= 5;
+    visualizer.jump (timeShift);
+    bumpControls();
+    return false;
+}
+
 // load both windows
 async.parallel ([
     function (callback) {
@@ -172,6 +208,33 @@ async.parallel ([
             );
             if (winState.controller.maximize)
                 controllerWindow.maximize();
+
+            // setup controls
+            // min - max - close
+            controllerWindow.window.document.getElementById ('Minimize').on ('click', function(){
+                controllerWindow.minimize();
+            });
+            var maxElem = controllerWindow.window.document.getElementById ('Maximize');
+            var isMaximized = false;
+            maxElem.on ('click', function(){
+                console.log ('maxClick');
+                if (isMaximized)
+                    controllerWindow.unmaximize();
+                else
+                    controllerWindow.maximize();
+            });
+            controllerWindow.on ('maximize', function(){
+                console.log ('didMaximize');
+                isMaximized = true;
+                maxElem.addClass ('restore');
+            });
+            controllerWindow.on ('unmaximize', function(){
+                console.log ('did unMaximize');
+                isMaximized = false;
+                maxElem.dropClass ('restore');
+            });
+
+            // controller ready
             callback();
         });
     },
@@ -187,16 +250,54 @@ async.parallel ([
             if (winState.visualizer.maximize)
                 visualizerWindow.maximize();
             visualizer = new Visualizer (visualizerWindow, window.console);
-            // keyboard navigation events
-            visualizerWindow.window.document.body.on ('keydown', function (event) {
-                if (event.altKey || event.ctrlKey) // always addressed to the Visualizer
-                    return;
-                if (event.keyCode < 37 || event.keyCode > 40)
-                    return;
-                controller.go (event.keyCode);
+
+            // setup controls
+            // min - max - close
+            visualizer.document.getElementById ('Minimize').on ('click', function(){
+                visualizerWindow.minimize();
             });
+            var maxElem = visualizer.document.getElementById ('Maximize');
+            var isMaximized = false;
+            maxElem.on ('click', function(){
+                console.log ('maxClick');
+                if (isMaximized)
+                    visualizerWindow.unmaximize();
+                else
+                    visualizerWindow.maximize();
+            });
+            visualizerWindow.on ('maximize', function(){
+                console.log ('didMaximize');
+                isMaximized = true;
+                maxElem.addClass ('restore');
+            });
+            visualizerWindow.on ('unmaximize', function(){
+                console.log ('did unMaximize');
+                isMaximized = false;
+                maxElem.dropClass ('restore');
+            });
+
+            // bump controls into view whenever the mouse moves
+            var controlsTimer;
+            var Theatre = visualizer.document.getElementById ('Theatre');
+            function bumpControls(){
+                clearTimeout (controlsTimer);
+                visualizer.controlsElem.addClass ('visible');
+                Theatre.dropClass ('nocurse');
+                controlsTimer = setTimeout (function(){
+                    visualizer.controlsElem.dropClass ('visible');
+                    Theatre.addClass ('nocurse');
+                    visualizer.modeSelect.blur();
+                }, CONTROLS_TIMEOUT);
+            }
+            visualizer.document.body.on ('mousemove', bumpControls);
+            visualizer.controlsElem.on ('mousemove', bumpControls);
+
+            // keyboard navigation events
+            visualizer.document.body.on ('keydown', handleKey);
             if (openPath)
                 visualizer.display (openPath, ext);
+
+            // visualizer ready
             callback();
         });
     }
@@ -209,6 +310,14 @@ async.parallel ([
 
     // ready to start the controller now
     controller = new Controller (controllerWindow, visualizer, window.console);
+    controller.document.body.on ('keydown', handleKey);
+    controller.on ('display', function (filepath, type) {
+        visualizer.display (filepath, type);
+    });
+    controller.on ('preload', function (filepath, type) {
+        visualizer.preload (filepath);
+    });
+
     // reveal current path
     controller.currentPath = openDir;
     controller.openCurrent (function (err) {

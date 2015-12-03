@@ -6,7 +6,6 @@ var chimera = require ('wcjs-renderer');
 /**     @module/class PornViewer:Visualizer
 
 */
-var CONTROLS_TIMEOUT = 1500;
 var MODE_INDEX = { normal:0, zoom:1, flood:2 };
 var IMAGE_EXT = [ '.jpg', '.jpeg', '.png', '.gif' ];
 var RE_LEFT = /left:(-?\d+)px/;
@@ -111,26 +110,10 @@ function Visualizer (winnder, console) {
         self.window.close();
     });
 
-    // bump controls into view whenever the mouse moves
-    var controlsTimer;
-    var Theatre = this.document.getElementById ('Theatre');
-    function bumpControls(){
-        clearTimeout (controlsTimer);
-        self.controlsElem.addClass ('visible');
-        Theatre.dropClass ('nocurse');
-        controlsTimer = setTimeout (function(){
-            self.controlsElem.dropClass ('visible');
-            Theatre.addClass ('nocurse');
-            self.modeSelect.blur();
-        }, CONTROLS_TIMEOUT);
-    }
-    this.document.body.on ('mousemove', bumpControls);
-    this.controlsElem.on ('mousemove', bumpControls);
-
     // video controls
     var PlayButton = this.document.getElementById ('PlayPause');
-    var SeekBar = this.document.getElementById ('SeekBar');
-    var SeekCaret = this.document.getElementById ('SeekCaret');
+    var SeekBar = this.SeekBar = this.document.getElementById ('SeekBar');
+    var SeekCaret = this.SeekCaret = this.document.getElementById ('SeekCaret');
     var MuteIndicator = this.document.getElementById ('MuteIndicator');
     var VolumeBar = this.document.getElementById ('VolumeBar');
     var VolumeCaret = this.document.getElementById ('VolumeCaret');
@@ -139,36 +122,6 @@ function Visualizer (winnder, console) {
     var VideoControls = this.document.getElementById ('VideoControls');
     VideoControls.on ('mousedown', function(){ return false; })
     VideoControls.on ('selectstart', function(){ return false; })
-
-    this.document.body.on ('keydown', function (event) {
-        if (!event.altKey && !event.ctrlKey) // addressed to the Controller
-            return;
-        if (!self.vlc)
-            return;
-
-        if (event.keyCode >= 37 && event.keyCode <= 40) {
-            var timeShift;
-            switch (event.keyCode) {
-                case 37:
-                    timeShift = 30 * 1000 * -1;
-                    break;
-                case 38:
-                    timeShift = 60 * 1000;
-                    break;
-                case 39:
-                    timeShift = 30 * 1000;
-                    break;
-                case 40:
-                    timeShift = 60 * 1000 * -1;
-                    break;
-            }
-            if (event.shiftKey)
-                timeShift *= 5;
-            self.vlc.time = Math.max (0, Math.min (self.vlc.length, self.vlc.time + timeShift));
-            bumpControls();
-            return;
-        }
-    });
 
     PlayButton.on ('click', function(){
         if (this.hasClass ('playing')) {
@@ -337,6 +290,25 @@ function Visualizer (winnder, console) {
     this.document.body.on ('mouseleave', killDrags);
 }
 module.exports = Visualizer;
+
+Visualizer.prototype.playpause = function(){
+    if (!this.vlc)
+        return;
+    if (this.vlc.playing)
+        this.vlc.pause();
+    else
+        this.vlc.play();
+};
+
+Visualizer.prototype.jump = function (timeShift) {
+    if (!this.vlc || !this.vlc.length)
+        return;
+    var newTime = this.vlc.time = Math.max (0, Math.min (this.vlc.length, this.vlc.time + timeShift));
+
+    // adjust the caret
+    var position = newTime / this.vlc.length;
+    this.SeekCaret.setAttribute ('style', 'left:' + (position * this.SeekBar.clientWidth) + 'px;');
+};
 
 Visualizer.prototype.display = function (filepath, type) {
     if (!filepath) return;

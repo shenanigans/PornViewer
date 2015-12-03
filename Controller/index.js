@@ -1,6 +1,8 @@
 
 var fs = require ('fs');
 var path = require ('path');
+var EventEmitter = require ('events').EventEmitter;
+var util = require ('util');
 var async = require ('async');
 var surveil = require ('surveil');
 var ThumbWarrior = require ('./ThumbWarrior');
@@ -14,41 +16,15 @@ var IMAGE_EXT = [ '.jpg', '.jpeg', '.png', '.gif' ];
 var IMAGE_EXT_MAP =  { '.jpg':true, '.jpeg':true, '.png':true, '.gif':true };
 
 function Controller (winnder, visualizer, console) {
+    EventEmitter.call (this);
     this.window = winnder;
     this.document = winnder.window.document;
     this.console = console;
     this.visualizer = visualizer;
     this.warrior = new ThumbWarrior (this.document);
 
-    // keyboard navigation events
     this.hostElem = this.document.getElementById ('Host');
     var self = this;
-    this.document.body.on ('keydown', function (event) {
-        if (event.keyCode < 37 || event.keyCode > 40)
-            return true;
-        self.go (event.keyCode);
-        return false;
-    });
-
-    // bar buttons
-    this.document.getElementById ('Minimize').on ('click', function(){
-        self.window.minimize();
-    });
-    var maxElem = this.document.getElementById ('Maximize');
-    maxElem.on ('click', function(){
-        if (self.isMaximized)
-            self.window.unmaximize();
-        else
-            self.window.maximize();
-    });
-    winnder.on ('maximize', function(){
-        self.isMaximized = true;
-        maxElem.addClass ('restore');
-    });
-    winnder.on ('unmaximize', function(){
-        self.isMaximized = false;
-        maxElem.dropClass ('restore');
-    });
 
     this.initialResizeClip = 100; // limit the initially rapid resize watchdog poll
     var currentWidth = this.document.body.clientWidth;
@@ -168,6 +144,7 @@ function Controller (winnder, visualizer, console) {
             }
         );
 }
+util.inherits (Controller, EventEmitter);
 module.exports = Controller;
 
 Controller.prototype.revealDirectory = function (target) {
@@ -295,7 +272,7 @@ Controller.prototype.setupThumb = function (container, thumbPath, padHeight, sta
             newThumb.setAttribute ('src', thumbPath + '?' + (new Date()).getTime());
         if (padHeight)
             newThumb.setAttribute ('style', 'margin-top:'+padHeight+'px');
-        container.appendChild (newThumb);
+        container.insertBefore (newThumb, container.lastChild);
     }
 };
 
@@ -651,7 +628,8 @@ Controller.prototype.showImage = function (thumbElem, imgPath, ext) {
     if (this.selectedImagePath == imgPath)
         return;
     this.selectedImagePath = imgPath;
-    this.visualizer.display (imgPath, ext || thumbElem.getAttribute ('data-type'));
+    this.emit ('display', imgPath, ext || thumbElem.getAttribute ('data-type'));
+    // this.visualizer.display (imgPath, ext || thumbElem.getAttribute ('data-type'));
 
     // preload nearby thumbs
     clearTimeout (this.preloadJob);
@@ -660,14 +638,18 @@ Controller.prototype.showImage = function (thumbElem, imgPath, ext) {
         var thumbCount = self.thumbsElem.children.length;
         if (thumbCount >= 3) {
             if (thumbIndex > 0)
-                self.visualizer.preload (self.thumbsElem.children[thumbIndex-1].getAttribute ('data-path'));
+                self.emit ('preload', self.thumbsElem.children[thumbIndex-1].getAttribute ('data-path'));
+                // self.visualizer.preload (self.thumbsElem.children[thumbIndex-1].getAttribute ('data-path'));
             if (thumbIndex + 1 < self.thumbsElem.children.length)
-                self.visualizer.preload (self.thumbsElem.children[thumbIndex+1].getAttribute ('data-path'));
+                self.emit ('preload', self.thumbsElem.children[thumbIndex+1].getAttribute ('data-path'));
+                // self.visualizer.preload (self.thumbsElem.children[thumbIndex+1].getAttribute ('data-path'));
             var rowWidth = Math.floor (self.thumbsElem.clientWidth / self.selectedImage.clientWidth);
             if (thumbCount >= rowWidth) {
-                self.visualizer.preload (self.lookUp().getAttribute ('data-path'));
+                self.emit ('preload', self.lookUp().getAttribute ('data-path'));
+                // self.visualizer.preload (self.lookUp().getAttribute ('data-path'));
                 if (thumbCount > 2 * rowWidth)
-                    self.visualizer.preload (self.lookDown().getAttribute ('data-path'));
+                    self.emit ('preload', self.lookDown().getAttribute ('data-path'));
+                    // self.visualizer.preload (self.lookDown().getAttribute ('data-path'));
             }
         }
     }, 50);
