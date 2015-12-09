@@ -9,6 +9,7 @@ var ThumbWarrior = require ('./ThumbWarrior');
 // var Collection = require ('./Collection');
 var Directory = require ('./Directory');
 var FilenameSorter = require ('./FilenameSorter');
+var Pron = require ('Pron');
 
 var DRIVE_REGEX = /([\w ]+\w)  +(\w:)/;
 var KNOWN_EXT = [ '.jpg', '.jpeg', '.png', '.gif', '.wmv', '.avi', '.mkv', '.rm', '.mp4', '.m4v' ];
@@ -285,6 +286,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
     }
     elem.addClass ('selected');
     this.lastSelectedElem = elem;
+    var pronMap = {};
 
     var self = this;
     if (this.watcher)
@@ -325,6 +327,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                     oldThumbPath.replace (/\?\d+$/, '');
                 break;
             }
+
         self.warrior.redoThumb (self.selectedPath, filepath, oldThumbPath, function (err, thumbPath, padHeight, stats) {
             if (err) {
                 console.log ('failed to redraw thumbnail for', filepath, err);
@@ -383,15 +386,17 @@ Controller.prototype.select = function (dirpath, elem, listed) {
             for (var i=0,j=KNOWN_EXT.length; i<j; i++) {
                 var ext = KNOWN_EXT[i];
                 if (fname.slice (-1*ext.length) === ext) {
-                    var newThumbContainer = self.createContainer (dirpath, fname);
-                    self.thumbsElem.appendChild (newThumbContainer);
-                    if (Object.hasOwnProperty.call (IMAGE_EXT_MAP, ext)) {
-                        imageNames.push (fname);
-                        imageElems.push (newThumbContainer);
-                    } else {
-                        videoNames.push (fname);
-                        videoElems.push (newThumbContainer);
-                    }
+                    var container = self.createContainer (dirpath, fname);
+                    self.thumbsElem.appendChild (container);
+                    var prawn = new Pron (self.warrior, dirpath, fname);
+                    pronMap[fname] = prawn;
+                    prawn.on ('thumb', function (thumbPath, padHeight, stats) {
+                        if (self.selectedPath != dirpath)
+                            return;
+
+                        self.setupThumb (container, thumbPath, padHeight, stats);
+                        self.sortThumb (container);
+                    });
                     return;
                 }
             }

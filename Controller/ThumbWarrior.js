@@ -2,7 +2,6 @@
 var path = require ('path');
 var fs = require ('fs');
 var lwip = require ('lwip');
-var uid = require ('infosex').uid.craft;
 var async = require ('async');
 var mkdirp = require ('mkdirp');
 var getType = require ('image-type');
@@ -14,22 +13,6 @@ var gui = global.window.nwDispatcher.requireNwGui();
 /**     @module PornViewer:ThumbWarrior
 
 */
-var dbReady = false, dbQueue = [];
-var db = window.openDatabase ('pornviewer', '', 'image info', 10000 * 1024);
-db.changeVersion (db.version, "1.2", function (tx) {
-    tx.executeSql ('CREATE TABLE IF NOT EXISTS images (id unique, directory, filename, thumbnail, pad, type, size, created, modified, Primary Key (id))');
-    tx.executeSql ('CREATE UNIQUE INDEX IF NOT EXISTS directory ON images (directory, filename)');
-    // tx.executeSql ('CREATE TABLE metadata (image, key, value, Foreign Key (image))');
-    // tx.executeSql ('CREATE INDEX image ON metadata (image)');
-}, function (err) {
-    // database failure
-    console.log ('db failed', err);
-}, function(){
-    dbReady = true;
-    for (var i=0,j=dbQueue.length; i<j; i++)
-        dbQueue[i]();
-    delete dbQueue;
-});
 
 var ZOOM_INTO_MIN = 3 / 4;
 var ZOOM_INTO_MAX = 4 / 3;
@@ -43,6 +26,35 @@ var IMAGE_EXT = [ '.jpg', '.jpeg', '.png', '.gif' ];
 var VID_THUMB = 'file://' + path.join (__dirname, 'video_thumb.png');
 var VID_THUMB_TIMEOUT = 2000;
 mkdirp.sync (THUMBS_DIR);
+
+function FingerTrap (width) {
+    this.width = width || 1;
+    this.taken = 0;
+};
+FingerTrap.prototype.take = function (callback) {
+    if (this.taken < this.width) {
+        this.taken++;
+        process.nextTick (callback);
+        return;
+    }
+    if (this.queue)
+        this.queue.push (callback);
+    else
+        this.queue = [ callback ];
+};
+FingerTrap.prototype.free = function(){
+    if (!this.queue)
+        this.taken--;
+    else {
+        process.nextTick (this.queue.shift());
+        if (!this.queue.length)
+            delete this.queue;
+    }
+};
+
+// these are global, not per-warrior
+var IMG_THUMB_LOCK = new FingerTrap (16);
+var VID_THUMB_LOCK = new FingerTrap (1);
 
 function ThumbWarrior (document) {
     this.document = document;
@@ -104,362 +116,238 @@ function ThumbWarrior (document) {
     this.finalCanvas.setAttribute ('style', 'position:fixed;left:-1000px;width:150px;height:150px;');
     document.body.appendChild (this.finalCanvas);
 }
-module.exports = ThumbWarrior;
 
-/**     @property/Function getThumb
+ThumbWarrior.prototype.processThumb = function (filepath, thumbpath, callback) {
+    IMG_THUMB_LOCK.take (function(){
+        var finalImage;
+        var stats = {};
+        async.parallel ([
+            function (callback) {
+                fs.readFile (filepath, function (err, buf) {
+                    if (err)
+                        return callback (err);
+                    imageType = getType (buf);
+                    if (!imageType)
+                        return callback (new Error ('not a known image format'));
+                    stats.type = imageType.ext;
+                    lwip.open (buf, imageType.ext, function (err, image) {
+                        if (err)
+                            return callback (err);
+                        finalImage = image;
 
-*/
-ThumbWarrior.prototype.getThumb = function (dirpath, filename, callback) {
-    var self = this;
-    if (!dbReady) {
-        dbQueue.push (function(){ self.getThumb (dirpath, filename, callback); });
-        return;
-    }
+                        var width = image.width();
+                        var height = image.height();
 
-    var filepath = path.join (dirpath, filename);
-    var thumbPath, pad, stats, imageType, newThumbPath, srcImage;
-    var newWidth, newHeight, scale;
-    async.parallel ([
-        function (callback) {
-            uid (function (newID) {
-                newThumbPath = path.join (THUMBS_DIR, newID + '.png');
-                callback();
-            });
-        },
-        function (callback) {
-            db.transaction (function (tx) {
-                tx.executeSql (
-                    'SELECT * FROM images WHERE directory=(?) AND filename=(?)',
-                    [ dirpath, filename ],
-                    function (tx, results) {
-                        if (!results.rows.length)
+                        if (width <= THUMB_SIZE && height <= THUMB_SIZE)
                             return callback();
-                        var row = results.rows.item(0);
-                        thumbPath = row.thumbnail;
-                        pad = row.pad;
-                        stats = { type:row.type, size:row.size, created:row.created, modified:row.modified };
-                        callback();
-                    }
-                );
-            });
-        },
-    ], function(){
-        if (thumbPath)
-            return callback (undefined, 'file://'+thumbPath, pad, stats);
 
-        // video?
-        var isVideo = true;
-        for (var i=0,j=IMAGE_EXT.length; i<j; i++) {
-            var ext = IMAGE_EXT[i];
-            if (filepath.slice (-1 * ext.length) === ext) {
-                isVideo = false;
-                break;
-            }
-        }
-        if (isVideo) {
-            return self.processVideoThumb (filepath, function (err, finalBuf, thumbHeight, stats) {
-                if (err)
-                    return callback (err, undefined, undefined, stats);
+                        if (width == height)
+                            return image.resize (150, 150, function (err, image) {
+                                if (err)
+                                    return callback (err);
+                                finalImage = image;
+                                callback();
+                            });
 
-                // write the thumbnail data to disc and update the thumbnail database
-                fs.writeFile (newThumbPath, finalBuf, function (err) {
-                    if (err)
-                        return callback (err);
-                    if (thumbHeight < VID_THUMB_HEIGHT)
-                        pad = Math.floor (VID_THUMB_HEIGHT - thumbHeight);
-                    db.transaction (function (tx) {
-                        tx.executeSql (
-                            'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type, size, created, modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                            [ dirpath, filename, newThumbPath, pad||0, stats.type, stats.size, stats.created, stats.modified ]
-                        );
-                    });
-                    callback (undefined, 'file://' + newThumbPath, pad, stats);
-                });
-            });
-        }
+                        // var top, right, bottom, left, scale;
+                        var finalWidth, finalHeight;
+                        if (width > height) {
+                            var maxClip = width * MAX_CLIP;
+                            newWidth = Math.max (width - maxClip, height);
+                            newHeight = height;
+                            scale = THUMB_SIZE / newWidth;
+                        } else {
+                            var maxClip = width * MAX_CLIP;
+                            newHeight = Math.max (height - maxClip, width);
+                            newWidth = width;
+                            scale = THUMB_SIZE / newHeight;
+                        }
 
-        self.processThumb (filepath, function (err, finalImage, stats) {
-            if (err)
-                return callback (err);
-
-            // write the thumbnail data to disc and update the thumbnail database
-            finalImage.writeFile (newThumbPath, 'png', function (err) {
-                if (err)
-                    return callback (err);
-                var finalHeight = finalImage.height();
-                if (finalHeight < THUMB_SIZE)
-                    pad = Math.floor ((THUMB_SIZE - finalHeight) / 2);
-                db.transaction (function (tx) {
-                    tx.executeSql (
-                        'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type, size, created, modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                        [ dirpath, filename, newThumbPath, pad||0, stats.type, stats.size, stats.created, stats.modified ]
-                    );
-                });
-                callback (undefined, 'file://' + newThumbPath, pad, stats);
-            });
-        });
-    });
-};
-
-ThumbWarrior.prototype.processThumb = function (filepath, callback) {
-    var finalImage;
-    var stats = {};
-    async.parallel ([
-        function (callback) {
-            fs.readFile (filepath, function (err, buf) {
-                if (err)
-                    return callback (err);
-                imageType = getType (buf);
-                stats.type = imageType.ext;
-                lwip.open (buf, imageType.ext, function (err, image) {
-                    if (err)
-                        return callback (err);
-                    finalImage = image;
-
-                    var width = image.width();
-                    var height = image.height();
-
-                    if (width <= THUMB_SIZE && height <= THUMB_SIZE)
-                        return callback();
-
-                    if (width == height)
-                        return image.resize (150, 150, function (err, image) {
+                        // finalize the transform
+                        var batch = image.batch()
+                         .crop (newWidth, newHeight)
+                         .scale (scale)
+                         ;
+                        batch.exec (function (err, image) {
                             if (err)
                                 return callback (err);
                             finalImage = image;
                             callback();
                         });
-
-                    // var top, right, bottom, left, scale;
-                    var finalWidth, finalHeight;
-                    if (width > height) {
-                        var maxClip = width * MAX_CLIP;
-                        newWidth = Math.max (width - maxClip, height);
-                        newHeight = height;
-                        scale = THUMB_SIZE / newWidth;
-                    } else {
-                        var maxClip = width * MAX_CLIP;
-                        newHeight = Math.max (height - maxClip, width);
-                        newWidth = width;
-                        scale = THUMB_SIZE / newHeight;
-                    }
-
-                    // finalize the transform
-                    var batch = image.batch()
-                     .crop (newWidth, newHeight)
-                     .scale (scale)
-                     ;
-                    batch.exec (function (err, image) {
-                        if (err)
-                            return callback (err);
-                        finalImage = image;
-                        callback();
                     });
                 });
-            });
-        },
-        function (callback) {
-            fs.stat (filepath, function (err, filestats) {
-                if (err)
-                    return callback (err);
-                stats.size = filestats.size;
-                stats.created = filestats.ctime.getTime();
-                stats.modified = filestats.mtime.getTime();
-                callback();
-            });
-        }
-    ], function (err) {
-        if (err)
-            return callback (err);
-        callback (undefined, finalImage, stats);
-    });
-}
-
-ThumbWarrior.prototype.processVideoThumb = function (filepath, callback) {
-    var finalImage, thumbHeight;
-    var stats = {};
-    var self = this;
-    async.parallel ([
-        function (callback) {
-            self.targetCanvas.getContext ('2d').clearRect (0, 0, self.targetCanvas.width, self.targetCanvas.height);
-            self.finalCanvas.getContext ('2d').clearRect (0, 0, self.finalCanvas.width, self.finalCanvas.height);
-
-            var alreadyDone = false;
-            var vlc = chimera.init (self.workingCanvas, [], { preserveDrawingBuffer:true });
-            vlc.audio.mute = true;
-            vlc.play ('file:///' + filepath);
-            // wait for the second frame after seeking
-            var didSeek = false;
-            var targetTime;
-            var armed = false;
-            var fname = path.parse (filepath).base;
-            vlc.onerror = function (error) {
-                console.log ('vlc error', error);
-            };
-            function cancelCall(){
-                if (alreadyDone)
-                    return;
-                alreadyDone = true;
-                vlc.stop();
-                callback (new Error ('failed to render any frames within timeout'));
+            },
+            function (callback) {
+                fs.stat (filepath, function (err, filestats) {
+                    if (err)
+                        return callback (err);
+                    stats.size = filestats.size;
+                    stats.created = filestats.ctime.getTime();
+                    stats.modified = filestats.mtime.getTime();
+                    callback();
+                });
             }
-            var cancellationTimeout = setTimeout (cancelCall, VID_THUMB_TIMEOUT);
-            vlc.events.on ('FrameReady', function (frame) {
-                if (alreadyDone)
-                    return;
-                if (alreadyDone) {
-                    vlc.stop();
-                    return;
-                }
-                if (!didSeek) {
-                    didSeek = true;
-                    targetTime = Math.floor (vlc.time = vlc.length * 0.2);
-                    clearTimeout (cancellationTimeout);
-                    cancellationTimeout = setTimeout (cancelCall, VID_THUMB_TIMEOUT);
-                    return;
-                }
-                if (vlc.time < targetTime)
-                    return;
-                if (!armed) {
-                    armed = vlc.time;
-                    return;
-                }
-                // must advance PAST the arming frame
-                if (vlc.time <= armed)
-                    return;
-                clearTimeout (cancellationTimeout);
-                vlc.stop();
-                alreadyDone = true;
-
-                var wideRatio = VID_THUMB_WIDTH / frame.width;
-                var tallRatio = VID_THUMB_HEIGHT / frame.height;
-                var context = self.targetCanvas.getContext ('2d');
-                var newWidth, newHeight;
-                if (wideRatio < tallRatio) {
-                    newWidth = Math.floor (frame.width * wideRatio);
-                    newHeight = Math.floor (frame.height * wideRatio);
-                } else {
-                    newWidth = Math.floor (frame.width * tallRatio);
-                    newHeight = Math.floor (frame.height * tallRatio);
-                }
-                try {
-                    context.drawImage (
-                        self.workingCanvas,
-                        Math.floor ((THUMB_SIZE - newWidth) / 2),
-                        0,
-                        newWidth,
-                        newHeight
-                    );
-                    if (newWidth == VID_THUMB_WIDTH) {
-                        context.drawImage (self.videoThumbOverlay, 0, 0);
-                        self.finalCanvas.setAttribute ('width', THUMB_SIZE);
-                        newWidth = THUMB_SIZE;
-                    } else {
-                        var gutter = (THUMB_SIZE - VID_THUMB_WIDTH) / 2;
-                        context.drawImage (
-                            self.videoLeftGutter,
-                            Math.floor ((THUMB_SIZE - newWidth) / 2) - gutter,
-                            0
-                        );
-                        context.drawImage (
-                            self.videoRightGutter,
-                            Math.floor ((THUMB_SIZE + newWidth) / 2) - self.videoRightGutter.width + gutter,
-                            0
-                        );
-                        newWidth += THUMB_SIZE - VID_THUMB_WIDTH
-                        self.finalCanvas.setAttribute ('width', newWidth);
-                    }
-                    self.finalCanvas.setAttribute ('height', newHeight);
-                    self.finalCanvas.getContext ('2d').drawImage (
-                        self.targetCanvas,
-                        Math.floor ((THUMB_SIZE - newWidth) / 2),
-                        0,
-                        newWidth,
-                        newHeight,
-                        0,
-                        0,
-                        newWidth,
-                        newHeight
-                    );
-                    finalImage = new Buffer (
-                        self.finalCanvas.toDataURL().replace(/^data:image\/\w+;base64,/, ""),
-                        'base64'
-                    );
-                } catch (err) {
-                    return callback (err);
-                }
-                thumbHeight = newHeight;
-                vlc.stop();
-                callback();
-            });
-        },
-        function (callback) {
-            fs.stat (filepath, function (err, filestats) {
-                if (err)
-                    return callback (err);
-                stats.size = filestats.size;
-                stats.created = filestats.ctime.getTime();
-                stats.modified = filestats.mtime.getTime();
-                callback();
-            });
-        }
-    ], function (err) {
-        if (err)
-            return callback (err, undefined, undefined, stats);
-        callback (undefined, finalImage, thumbHeight, stats);
-    });
-}
-
-ThumbWarrior.prototype.redoThumb = function (dirpath, filename, thumbPath, callback) {
-    if (thumbPath)
-        thumbPath = thumbPath.replace (/^file:\/\//, '');
-    var image, stats;
-    var self = this;
-    async.parallel ([
-        function (callback) {
-            self.processThumb (path.join (dirpath, filename), function (err, finalImage, finalStats) {
-                if (err)
-                    return callback (err);
-                image = finalImage;
-                stats = finalStats;
-                callback();
-            });
-        },
-        function (callback) {
-            if (thumbPath)
-                return callback();
-            uid (function (newID) {
-                thumbPath = path.join (THUMBS_DIR, newID + '.png');
-                callback();
-            });
-        }
-    ], function (err) {
-        if (err)
-            return callback (err);
-
-        // write the thumbnail data to disc and update the thumbnail database
-        image.writeFile (thumbPath, 'png', function (err) {
+        ], function (err) {
+            IMG_THUMB_LOCK.free();
             if (err)
                 return callback (err);
-            var finalHeight = image.height();
-            if (finalHeight < THUMB_SIZE)
-                var pad = Math.floor ((THUMB_SIZE - finalHeight) / 2);
 
-            db.transaction (function (tx) {
-                tx.executeSql (
-                    'INSERT OR REPLACE INTO images (directory, filename, thumbnail, pad, type, size, created, modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                    [ dirpath, filename, thumbPath, pad, stats.type, stats.size, stats.created, stats.modified ]
-                );
+            // write the thumbnail data to disc
+            finalImage.writeFile (thumbpath, 'png', function (err) {
+                if (err)
+                    return callback (err, undefined, stats);
+                var finalHeight = finalImage.height();
+                var pad = finalHeight < THUMB_SIZE ? Math.floor ((THUMB_SIZE - finalHeight) / 2) : 0;
+                callback (undefined, pad, stats);
             });
-            callback (undefined, 'file://' + thumbPath, pad, stats);
         });
     });
 };
 
-ThumbWarrior.prototype.redoVideoThumb = function (dirpath, filename, thumbPath, callback) {
+ThumbWarrior.prototype.processVideoThumb = function (filepath, thumbpath, callback) {
+    var self = this;
+    VID_THUMB_LOCK.take (function(){
+        var finalImage, thumbHeight;
+        var stats = { type:'video' };
+        async.parallel ([
+            function (callback) {
+                self.targetCanvas.getContext ('2d').clearRect (0, 0, self.targetCanvas.width, self.targetCanvas.height);
+                self.finalCanvas.getContext ('2d').clearRect (0, 0, self.finalCanvas.width, self.finalCanvas.height);
 
+                var alreadyDone = false;
+                var vlc = chimera.init (self.workingCanvas, [], { preserveDrawingBuffer:true });
+                vlc.audio.mute = true;
+                vlc.play ('file:///' + filepath);
+                // wait for the second frame after seeking
+                var didSeek = false;
+                var targetTime;
+                var armed = false;
+                var fname = path.parse (filepath).base;
+                vlc.onerror = function (error) {
+                    console.log ('vlc error', error);
+                };
+                function cancelCall(){
+                    if (alreadyDone)
+                        return;
+                    alreadyDone = true;
+                    vlc.stop();
+                    callback (new Error ('failed to render any frames within timeout'));
+                }
+                var cancellationTimeout = setTimeout (cancelCall, VID_THUMB_TIMEOUT);
+                vlc.events.on ('FrameReady', function (frame) {
+                    if (alreadyDone)
+                        return;
+                    if (alreadyDone) {
+                        vlc.stop();
+                        return;
+                    }
+                    if (!didSeek) {
+                        didSeek = true;
+                        targetTime = Math.floor (vlc.time = vlc.length * 0.2);
+                        clearTimeout (cancellationTimeout);
+                        cancellationTimeout = setTimeout (cancelCall, VID_THUMB_TIMEOUT);
+                        return;
+                    }
+                    if (vlc.time < targetTime)
+                        return;
+                    if (!armed) {
+                        armed = vlc.time;
+                        return;
+                    }
+                    // must advance PAST the arming frame
+                    if (vlc.time <= armed)
+                        return;
+                    clearTimeout (cancellationTimeout);
+                    vlc.stop();
+                    alreadyDone = true;
+
+                    var wideRatio = VID_THUMB_WIDTH / frame.width;
+                    var tallRatio = VID_THUMB_HEIGHT / frame.height;
+                    var context = self.targetCanvas.getContext ('2d');
+                    var newWidth, newHeight;
+                    if (wideRatio < tallRatio) {
+                        newWidth = Math.floor (frame.width * wideRatio);
+                        newHeight = Math.floor (frame.height * wideRatio);
+                    } else {
+                        newWidth = Math.floor (frame.width * tallRatio);
+                        newHeight = Math.floor (frame.height * tallRatio);
+                    }
+                    try {
+                        context.drawImage (
+                            self.workingCanvas,
+                            Math.floor ((THUMB_SIZE - newWidth) / 2),
+                            0,
+                            newWidth,
+                            newHeight
+                        );
+                        if (newWidth == VID_THUMB_WIDTH) {
+                            context.drawImage (self.videoThumbOverlay, 0, 0);
+                            self.finalCanvas.setAttribute ('width', THUMB_SIZE);
+                            newWidth = THUMB_SIZE;
+                        } else {
+                            var gutter = (THUMB_SIZE - VID_THUMB_WIDTH) / 2;
+                            context.drawImage (
+                                self.videoLeftGutter,
+                                Math.floor ((THUMB_SIZE - newWidth) / 2) - gutter,
+                                0
+                            );
+                            context.drawImage (
+                                self.videoRightGutter,
+                                Math.floor ((THUMB_SIZE + newWidth) / 2) - self.videoRightGutter.width + gutter,
+                                0
+                            );
+                            newWidth += THUMB_SIZE - VID_THUMB_WIDTH
+                            self.finalCanvas.setAttribute ('width', newWidth);
+                        }
+                        self.finalCanvas.setAttribute ('height', newHeight);
+                        self.finalCanvas.getContext ('2d').drawImage (
+                            self.targetCanvas,
+                            Math.floor ((THUMB_SIZE - newWidth) / 2),
+                            0,
+                            newWidth,
+                            newHeight,
+                            0,
+                            0,
+                            newWidth,
+                            newHeight
+                        );
+                        finalImage = new Buffer (
+                            self.finalCanvas.toDataURL().replace(/^data:image\/\w+;base64,/, ""),
+                            'base64'
+                        );
+                    } catch (err) {
+                        return callback (err);
+                    }
+                    thumbHeight = newHeight;
+                    vlc.stop();
+                    callback();
+                });
+            },
+            function (callback) {
+                fs.stat (filepath, function (err, filestats) {
+                    if (err)
+                        return callback (err);
+                    stats.size = filestats.size;
+                    stats.created = filestats.ctime.getTime();
+                    stats.modified = filestats.mtime.getTime();
+                    callback();
+                });
+            }
+        ], function (err) {
+            VID_THUMB_LOCK.free();
+            if (err)
+                return callback (err, undefined, stats);
+
+            // write the thumbnail data to disc and update the thumbnail database
+            fs.writeFile (thumbpath, finalImage, function (err) {
+                if (err)
+                    return callback (err);
+                if (thumbHeight < VID_THUMB_HEIGHT)
+                    pad = Math.floor (VID_THUMB_HEIGHT - thumbHeight);
+                callback (undefined, pad, stats);
+            });
+        });
+    });
 };
 
-ThumbWarrior.prototype.removeThumb = function (dirpath, filename, thumbPath) {
-
-};
+module.exports = ThumbWarrior;
