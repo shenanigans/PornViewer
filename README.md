@@ -17,8 +17,8 @@ Also:
  * uses libvlc to play a generous assortment of video formats
  * animated gifs play with a pretty high quality upscale, it's nice
  * really fast thumbnail caching and sorting
- * drag-n-drop file and folder management boom, right there
  * slightly clever name sorting picks up on numbers better
+ * very small RAM footprint
 
 ## How
  * Use dem arrow keys.
@@ -53,8 +53,7 @@ I'd love to hear them. Now that there's video support involved I'm kinda intimid
 problem so it might be a while before I get a linux build up.
 
 ### OSX
-My dumbass apple laptop bricked out when its battery died. I should be able to get this figured out
-on my brother-in-law's MacBrick on or around thanksgiving. If you wanna try it yourself, see the
+My dumbass apple laptop bricked out when its battery died. If you wanna try it yourself, see the
 [build instructions](#building-pornviewer) near the bottom.
 
 
@@ -83,12 +82,12 @@ You're going to need [nodejs](https://nodejs.org) and the npm thingy it comes wi
 advised to **always** install Node.js from source. If you're on Windows, you will need MinGW. I
 recommend just using the lovely [command-line git installer](https://git-scm.com/downloads). You
 will need your platform's support files for `gyp` builds. That's build-essential or yummy equivalent
-on linux, xcode on osx and visual studio on windows.
+on linux, xcode on osx and visual studio 2013 (it **must** be 2013) on windows.
 
 Clone this repository and download the most recent stable version of
 [node-webkit](https://github.com/nwjs/nw.js#downloads). Unzip it, put it in the repository
 directory and rename it `nw`. If you're building a windows msi, copy the contents of the `nw`
-directory into `resources\x64\` or `resources\x86\`.
+directory into a new directory called `resources\x64\` or `resources\x86\`.
 
 Then do this stuff:
 ```shell
@@ -111,12 +110,11 @@ cd ../../
 
 #### Setting Up [`webchimera.js`](https://github.com/RSATom/WebChimera.js)
 If you're very very lucky, this will "just work". If not, you'll need to deal with customizing your
-distribution of the `webchimera.js` package. You'll find it at 
+distribution of the `webchimera.js` package. You'll find it at
 `node_modules\wcjs-renderer\node_modules\webchimera.js`.
-On Win10 x64 I habitually use [`wcjs-prebuilt`](https://github.com/Ivshti/wcjs-prebuilt) and just 
-rename its directory. Note that on windows x64 you currently need to manually copy a couple DLL 
-files and a directory of small binaries (`plugins`) from the `Program Files\VideoLAN\VLC\` 
-directory into `wcjs-prebuilt\bin` to replace the malformed copies found there.
+On Win10 x64 I habitually use [`wcjs-prebuilt`](https://github.com/Ivshti/wcjs-prebuilt) and just
+rename its directory. Note that on windows x64 you currently need to use [both](https://github.com/Ivshti/wcjs-prebuilt/issues/10#issuecomment-149008366)
+of [these](https://github.com/Ivshti/wcjs-prebuilt/issues/10#issuecomment-149201701) manual patches.
 
 #### Launching
 Use either `launch.sh` or `launch.vbs` to start the application from the source directory.

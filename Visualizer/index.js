@@ -310,104 +310,102 @@ Visualizer.prototype.jump = function (timeShift) {
     this.SeekCaret.setAttribute ('style', 'left:' + (position * this.SeekBar.clientWidth) + 'px;');
 };
 
-Visualizer.prototype.display = function (filepath, type) {
-    if (!filepath) return;
+// Visualizer.prototype.display = function (filepath, type) {
+Visualizer.prototype.display = function (prawn) {
     if (this.vlc) {
         this.vlc.stop();
         delete this.vlc;
         this.vlcElem.dropClass ('active');
     }
 
-    // video?
-    var isVideo = true;
-    for (var i=0,j=IMAGE_EXT.length; i<j; i++) {
-        var ext = IMAGE_EXT[i];
-        if (filepath.slice (-1 * ext.length) === ext) {
-            isVideo = false;
-            break;
-        }
-    }
-
     var self = this;
 
-    if (isVideo) {
-        if (this.dancer.firstChild) {
-            this.dancer.firstChild.dispose();
-            this.dancer.removeAttribute ('style');
-        }
-        this.context.clearRect (0, 0, this.canvas.width, this.canvas.height);
-        this.controlsElem.dropClass ('image');
-        this.controlsElem.addClass ('video');
-        this.vlcElem.addClass ('active');
+    this.activePron = prawn;
 
-        this.vlcElem.innerHTML = '<div id="VideoContainer"><canvas id="VideoCanvas" /></div>';
-        var container = this.document.getElementById ('VideoContainer');
-        var canvas = this.document.getElementById ('VideoCanvas');
-
-        this.vlc = chimera.init (canvas);
-        this.vlc.play ('file:///' + filepath);
-
-        this.vlc.events.once ('FrameReady', function (frame) {
-            var canvasWidth = frame.width;
-            var canvasHeight = frame.height;
-            canvas.setAttribute ('width', canvasWidth);
-            canvas.setAttribute ('height', canvasHeight);
-            var containerHeight = container.clientHeight;
-            var containerWidth = container.clientWidth;
-            var wideRatio = containerWidth / canvasWidth;
-            var tallRatio = containerHeight / canvasHeight;
-            var useRatio = wideRatio < tallRatio ? wideRatio : tallRatio;
-            var useHeight = Math.floor (canvasHeight * useRatio);
-            canvas.setAttribute (
-                'style',
-                'width:' + Math.floor (canvasWidth * useRatio) + 'px;'
-              + 'height:' + useHeight + 'px;'
-              + 'margin-top:' + Math.max (0, Math.floor((containerHeight - useHeight) / 2)) + 'px;'
-            );
+    if (prawn.isImage) {
+        this.loadImage (prawn.fullpath, function (err, image) {
+            if (err) {
+                console.log ('loadImage error', err);
+                return;
+            }
+            if (self.activePron !== prawn) // not interested in this Pron anymore
+                return;
+            self.controlsElem.dropClass ('video');
+            self.controlsElem.addClass ('image');
+            self.activeImage = image;
+            self.redraw();
         });
-
-        // this.vlc = VideoManager (this.vlcElem, filepath);
-        var SeekBar = this.document.getElementById ('SeekBar');
-        var SeekCaret = this.document.getElementById ('SeekCaret');
-        var isPlayingTimeout;
-        this.vlc.onTimeChanged = function (time) {
-            clearTimeout (isPlayingTimeout);
-            isPlayingTimeout = setTimeout (function(){
-                if (self.vlc.playing)
-                    PlayButton.addClass ('playing');
-                else
-                    PlayButton.dropClass ('playing');
-            }, 300);
-            var maxOffset = SeekBar.clientWidth - SeekCaret.firstChild.clientWidth;
-            SeekCaret.setAttribute (
-                'style',
-                'left:' + Math.floor (maxOffset * (time / self.vlc.length)) + 'px'
-            );
-        };
-        var PlayButton = this.document.getElementById ('PlayPause');
-        this.vlc.onPlaying = function(){
-            PlayButton.addClass ('playing');
-        };
-
-        this.vlc.onPaused = function(){
-            PlayButton.dropClass ('playing');
-        };
-
-        this.vlc.onStopped = function(){
-            PlayButton.dropClass ('playing');
-        };
         return;
     }
 
-    // file is an image
-    this.loadImage (filepath, function (err, image) {
-        self.controlsElem.dropClass ('video');
-        self.controlsElem.addClass ('image');
-        self.activePath = filepath;
-        self.activeImage = image;
-        self.activeType = type;
-        self.redraw();
+    // video
+    if (this.dancer.firstChild) {
+        this.dancer.firstChild.dispose();
+        this.dancer.removeAttribute ('style');
+    }
+    this.context.clearRect (0, 0, this.canvas.width, this.canvas.height);
+    this.controlsElem.dropClass ('image');
+    this.controlsElem.addClass ('video');
+    this.vlcElem.addClass ('active');
+
+    var container = this.document.createElement ('div');
+    container.setAttribute ('id', 'VideoContainer');
+    this.vlcElem.appendChild (container);
+    var canvas = this.document.createElement ('canvas');
+    canvas.setAttribute ('id', 'VideoCanvas');
+    this.vlcElem.appendChild (canvas);
+
+    this.vlc = chimera.init (canvas);
+    this.vlc.play ('file:///' + prawn.fullpath);
+
+    this.vlc.events.once ('FrameReady', function (frame) {
+        var canvasWidth = frame.width;
+        var canvasHeight = frame.height;
+        canvas.setAttribute ('width', canvasWidth);
+        canvas.setAttribute ('height', canvasHeight);
+        var containerHeight = container.clientHeight;
+        var containerWidth = container.clientWidth;
+        var wideRatio = containerWidth / canvasWidth;
+        var tallRatio = containerHeight / canvasHeight;
+        var useRatio = wideRatio < tallRatio ? wideRatio : tallRatio;
+        var useHeight = Math.floor (canvasHeight * useRatio);
+        canvas.setAttribute (
+            'style',
+            'width:' + Math.floor (canvasWidth * useRatio) + 'px;'
+          + 'height:' + useHeight + 'px;'
+          + 'margin-top:' + Math.max (0, Math.floor((containerHeight - useHeight) / 2)) + 'px;'
+        );
     });
+
+    var SeekBar = this.document.getElementById ('SeekBar');
+    var SeekCaret = this.document.getElementById ('SeekCaret');
+    var isPlayingTimeout;
+    this.vlc.onTimeChanged = function (time) {
+        clearTimeout (isPlayingTimeout);
+        isPlayingTimeout = setTimeout (function(){
+            if (self.vlc.playing)
+                PlayButton.addClass ('playing');
+            else
+                PlayButton.dropClass ('playing');
+        }, 300);
+        var maxOffset = SeekBar.clientWidth - SeekCaret.firstChild.clientWidth;
+        SeekCaret.setAttribute (
+            'style',
+            'left:' + Math.floor (maxOffset * (time / self.vlc.length)) + 'px'
+        );
+    };
+    var PlayButton = this.document.getElementById ('PlayPause');
+    this.vlc.onPlaying = function(){
+        PlayButton.addClass ('playing');
+    };
+
+    this.vlc.onPaused = function(){
+        PlayButton.dropClass ('playing');
+    };
+
+    this.vlc.onStopped = function(){
+        PlayButton.dropClass ('playing');
+    };
 };
 
 Visualizer.prototype.preload = function (filepath) {
@@ -430,6 +428,10 @@ Visualizer.prototype.preload = function (filepath) {
 
 var MAX_PRELOAD = 10;
 Visualizer.prototype.loadImage = function (filepath, callback) {
+    console.log ('loadImage', filepath);
+    if (!filepath)
+        throw new Error ('why the hell would this get called with no filename');
+
     // use a preloaded image
     if (Object.hasOwnProperty.call (this.readyImages, filepath)) {
         if (callback) {
@@ -466,6 +468,7 @@ Visualizer.prototype.loadImage = function (filepath, callback) {
             queue[i] (undefined, imageObj);
     };
     imageObj.onerror = function (err) {
+        console.log ('error!!!', err);
         var queue = self.loadingImages[filepath];
         delete self.loadingImages[filepath];
         for (var i=0,j=queue.length; i<j; i++)
@@ -505,7 +508,7 @@ Visualizer.prototype.redraw = function(){
         var top = Math.floor (( canvasHeight - height ) / 2);
         var left = Math.floor (( canvasWidth - width ) / 2);
 
-        if (this.activeType != 'gif' && this.activePath.slice (-4) != '.gif') {
+        if (this.activeType != 'gif' && this.activePron.filename.slice (-4) != '.gif') {
             this.context.fillRect (left, top, width, height);
             this.context.drawImage (this.activeImage, left, top, width, height);
         } else {
@@ -540,7 +543,7 @@ Visualizer.prototype.redraw = function(){
     var top = Math.floor (( canvasHeight - height ) / 2);
     var left = Math.floor (( canvasWidth - width ) / 2);
         this.context.fillRect (left, top, width, height);
-    if (this.activeType != 'gif' && this.activePath.slice (-4) != '.gif')
+    if (this.activeType != 'gif' && this.activePron.filename.slice (-4) != '.gif')
         this.context.drawImage (this.activeImage, left, top, width, height);
     else {
         this.dancer.setAttribute (

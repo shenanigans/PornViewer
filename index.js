@@ -311,11 +311,11 @@ async.parallel ([
     // ready to start the controller now
     controller = new Controller (controllerWindow, visualizer, window.console);
     controller.document.body.on ('keydown', handleKey);
-    controller.on ('display', function (filepath, type) {
-        visualizer.display (filepath, type);
+    controller.on ('display', function (prawn) {
+        visualizer.display (prawn);
     });
-    controller.on ('preload', function (filepath, type) {
-        visualizer.preload (filepath);
+    controller.on ('preload', function (prawn) {
+        visualizer.preload (prawn);
     });
 
     // reveal current path
