@@ -34,7 +34,8 @@ function Visualizer (winnder, console) {
     });
     this.dancer = this.document.getElementById ('Dancer');
     this.vlcElem = this.document.getElementById ('VLC');
-    this.videoContainer = this.document.getElementById ('VideoContainer');
+    this.vlcCanvas = this.document.getElementById ('VideoCanvas');
+    this.vlcContainer = this.document.getElementById ('VideoContainer');
 
     var maxElem = this.document.getElementById ('Maximize');
     maxElem.on ('click', function(){
@@ -61,6 +62,8 @@ function Visualizer (winnder, console) {
             self.canvas.height = self.canvas.clientHeight;
             self.redraw();
 
+
+
             // handle interval timing
             if ( initialInterval && ( !event || !--self.initialResizeClip ) ) {
                 clearInterval (initialInterval);
@@ -70,22 +73,22 @@ function Visualizer (winnder, console) {
             }
         }
         if (self.vlc) {
-            var videoCanvas = self.document.getElementById ('VideoCanvas');
-            var canvasHeight = videoCanvas.getAttribute ('height');
+            var canvasHeight = self.vlcCanvas.getAttribute ('height');
             if (!canvasHeight)
                 return;
-            var VideoContainer = self.document.getElementById ('VideoContainer');
-            var containerHeight = VideoContainer.clientHeight;
-            var canvasWidth = videoCanvas.getAttribute ('width');
-            var containerWidth = VideoContainer.clientWidth;
+            var containerHeight = self.vlcContainer.clientHeight;
+            var canvasWidth = self.vlcCanvas.getAttribute ('width');
+            var containerWidth = self.vlcContainer.clientWidth;
             var wideRatio = containerWidth / canvasWidth;
             var tallRatio = containerHeight / canvasHeight;
             var useRatio = wideRatio < tallRatio ? wideRatio : tallRatio;
+            var useWidth = Math.floor (canvasWidth * useRatio);
             var useHeight = Math.floor (canvasHeight * useRatio);
-            videoCanvas.setAttribute (
+            self.vlcCanvas.setAttribute (
                 'style',
                 'width:' + Math.floor (canvasWidth * useRatio) + 'px;'
               + 'height:' + useHeight + 'px;'
+              + 'margin-left:' + Math.max (0, Math.floor((containerWidth - useWidth) / 2)) + 'px;'
               + 'margin-top:' + Math.max (0, Math.floor((containerHeight - useHeight) / 2)) + 'px;'
             );
         }
@@ -348,31 +351,26 @@ Visualizer.prototype.display = function (prawn) {
     this.controlsElem.addClass ('video');
     this.vlcElem.addClass ('active');
 
-    var container = this.document.createElement ('div');
-    container.setAttribute ('id', 'VideoContainer');
-    this.vlcElem.appendChild (container);
-    var canvas = this.document.createElement ('canvas');
-    canvas.setAttribute ('id', 'VideoCanvas');
-    this.vlcElem.appendChild (canvas);
-
-    this.vlc = chimera.init (canvas);
+    var currentVLC = this.vlc = chimera.init (this.vlcCanvas);
     this.vlc.play ('file:///' + prawn.fullpath);
 
     this.vlc.events.once ('FrameReady', function (frame) {
         var canvasWidth = frame.width;
         var canvasHeight = frame.height;
-        canvas.setAttribute ('width', canvasWidth);
-        canvas.setAttribute ('height', canvasHeight);
-        var containerHeight = container.clientHeight;
-        var containerWidth = container.clientWidth;
+        self.vlcCanvas.setAttribute ('width', canvasWidth);
+        self.vlcCanvas.setAttribute ('height', canvasHeight);
+        var containerWidth = self.vlcContainer.clientWidth;
+        var containerHeight = self.vlcContainer.clientHeight;
         var wideRatio = containerWidth / canvasWidth;
         var tallRatio = containerHeight / canvasHeight;
         var useRatio = wideRatio < tallRatio ? wideRatio : tallRatio;
+        var useWidth = Math.floor (canvasWidth * useRatio);
         var useHeight = Math.floor (canvasHeight * useRatio);
-        canvas.setAttribute (
+        self.vlcCanvas.setAttribute (
             'style',
             'width:' + Math.floor (canvasWidth * useRatio) + 'px;'
           + 'height:' + useHeight + 'px;'
+          + 'margin-left:' + Math.max (0, Math.floor((containerWidth - useWidth) / 2)) + 'px;'
           + 'margin-top:' + Math.max (0, Math.floor((containerHeight - useHeight) / 2)) + 'px;'
         );
     });
@@ -381,6 +379,8 @@ Visualizer.prototype.display = function (prawn) {
     var SeekCaret = this.document.getElementById ('SeekCaret');
     var isPlayingTimeout;
     this.vlc.onTimeChanged = function (time) {
+        if (self.vlc !== currentVLC)
+            return;
         clearTimeout (isPlayingTimeout);
         isPlayingTimeout = setTimeout (function(){
             if (self.vlc.playing)
@@ -396,14 +396,20 @@ Visualizer.prototype.display = function (prawn) {
     };
     var PlayButton = this.document.getElementById ('PlayPause');
     this.vlc.onPlaying = function(){
+        if (self.vlc !== currentVLC)
+            return;
         PlayButton.addClass ('playing');
     };
 
     this.vlc.onPaused = function(){
+        if (self.vlc !== currentVLC)
+            return;
         PlayButton.dropClass ('playing');
     };
 
     this.vlc.onStopped = function(){
+        if (self.vlc !== currentVLC)
+            return;
         PlayButton.dropClass ('playing');
     };
 };

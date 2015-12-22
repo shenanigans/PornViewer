@@ -312,9 +312,11 @@ async.parallel ([
     controller = new Controller (controllerWindow, visualizer, window.console);
     controller.document.body.on ('keydown', handleKey);
     controller.on ('display', function (prawn) {
+        console.log ('display', prawn);
         visualizer.display (prawn);
     });
     controller.on ('preload', function (prawn) {
+        console.log ('preload', prawn);
         visualizer.preload (prawn);
     });
 

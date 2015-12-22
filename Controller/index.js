@@ -368,7 +368,8 @@ Controller.prototype.select = function (dirpath, elem, listed) {
 
 Controller.prototype.sortThumb = function (container, thumbPath, padHeight, stats) {
     if (thumbPath) {
-        container.disposeChildren();
+        if (container.lastChild.nodeName == 'IMG')
+            container.lastChild.dispose();
         container.dropClass ('loading');
         var newThumb = this.document.createElement ('img');
             newThumb.setAttribute ('src', thumbPath + '?' + (new Date()).getTime());

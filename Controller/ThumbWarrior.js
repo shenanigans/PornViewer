@@ -343,7 +343,7 @@ ThumbWarrior.prototype.processVideoThumb = function (filepath, thumbpath, callba
                 if (err)
                     return callback (err);
                 if (thumbHeight < VID_THUMB_HEIGHT)
-                    pad = Math.floor (VID_THUMB_HEIGHT - thumbHeight);
+                    pad = Math.floor ((VID_THUMB_HEIGHT - thumbHeight) / 2);
                 callback (undefined, pad, stats);
             });
         });
