@@ -18,7 +18,11 @@ var CONTROLS_TIMEOUT = 1500;
 //
 
 var visualizer, controller;
-
+// var win = gui.Window.get();
+// win.on ('loaded', function(){
+//     win.height += win.window.document.body.clientHeight - win.window.innerHeight;
+//     win.show();
+// });
 
 // launch the Visualizer Window
 visualizerWindow = gui.Window.open ('./Visualizer/index.html', {
@@ -174,16 +178,16 @@ function handleKey (event) {
     var timeShift;
     switch (event.keyCode) {
         case 37:
-            timeShift = 30 * 1000 * -1;
+            timeShift = -3 * 1000;
             break;
         case 38:
-            timeShift = 60 * 1000;
+            timeShift = 15 * 1000;
             break;
         case 39:
-            timeShift = 30 * 1000;
+            timeShift = 3 * 1000;
             break;
         case 40:
-            timeShift = 60 * 1000 * -1;
+            timeShift = -15 * 1000;
             break;
         default:
             return false;

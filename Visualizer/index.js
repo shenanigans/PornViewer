@@ -9,6 +9,9 @@ var chimera = require ('wcjs-renderer');
 var MODE_INDEX = { normal:0, zoom:1, flood:2 };
 var IMAGE_EXT = [ '.jpg', '.jpeg', '.png', '.gif' ];
 var RE_LEFT = /left:(-?\d+)px/;
+var MIN_WIDTH = 10;
+var MIN_HEIGHT = 10;
+var MIN_SHOWING = 5;
 function Visualizer (winnder, console) {
     this.window = winnder;
     this.document = winnder.window.document;
@@ -53,6 +56,39 @@ function Visualizer (winnder, console) {
         maxElem.dropClass ('restore');
     });
 
+    // manual image viewing
+    this.document.body.on ('wheel', function (event) {
+        var shift = event.wheelDelta / 2000;
+        self.zoomRatio += self.zoomRatio * shift;
+        self.manualZoom = true;
+        self.redraw();
+    });
+    this.imageDragging = false;
+    this.manualOffset = false;
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this.document.on ('mousedown', function (event) {
+        if (event.button != 0)
+            return;
+        self.document.body.addClass ('draggingImage');
+        self.imageDragging = true;
+    });
+    this.document.body.on ('mouseup', function(){
+        self.document.body.dropClass ('draggingImage');
+        self.imageDragging = false;
+    });
+    this.document.body.on ('mouseleave', function(){
+        self.document.body.dropClass ('draggingImage');
+        self.imageDragging = false;
+    });
+    this.document.body.on ('mousemove', function (event) {
+        if (!self.imageDragging) return;
+        self.maxOffset = true;
+        self.offsetX += event.movementX;
+        self.offsetY += event.movementY;
+        self.redraw();
+    });
+
     this.initialResizeClip = 100; // limit the initially rapid resize watchdog poll
     function resize (event) {
         if (self.canvas.width != self.canvas.clientWidth
@@ -62,8 +98,6 @@ function Visualizer (winnder, console) {
             self.canvas.height = self.canvas.clientHeight;
             self.redraw();
 
-
-
             // handle interval timing
             if ( initialInterval && ( !event || !--self.initialResizeClip ) ) {
                 clearInterval (initialInterval);
@@ -72,34 +106,17 @@ function Visualizer (winnder, console) {
                 setInterval (resize, 5000);
             }
         }
-        if (self.vlc) {
-            var canvasHeight = self.vlcCanvas.getAttribute ('height');
-            if (!canvasHeight)
-                return;
-            var containerHeight = self.vlcContainer.clientHeight;
-            var canvasWidth = self.vlcCanvas.getAttribute ('width');
-            var containerWidth = self.vlcContainer.clientWidth;
-            var wideRatio = containerWidth / canvasWidth;
-            var tallRatio = containerHeight / canvasHeight;
-            var useRatio = wideRatio < tallRatio ? wideRatio : tallRatio;
-            var useWidth = Math.floor (canvasWidth * useRatio);
-            var useHeight = Math.floor (canvasHeight * useRatio);
-            self.vlcCanvas.setAttribute (
-                'style',
-                'width:' + Math.floor (canvasWidth * useRatio) + 'px;'
-              + 'height:' + useHeight + 'px;'
-              + 'margin-left:' + Math.max (0, Math.floor((containerWidth - useWidth) / 2)) + 'px;'
-              + 'margin-top:' + Math.max (0, Math.floor((containerHeight - useHeight) / 2)) + 'px;'
-            );
-        }
     }
 
     // when the window first resizes at startup, the resize event isn't sent. We have to poll.
     var initialInterval = setInterval (resize, 100);
     this.window.on ('resize', resize);
     this.resize = resize;
+
     this.context = this.canvas.getContext('2d');
     this.context.fillStyle = 'white';
+
+    // basic view controls
     this.modeSelect = this.document.getElementById ('Mode');
     this.modeSelect.selectedIndex = MODE_INDEX[this.mode];
     this.modeSelect.on ('change', function(){
@@ -111,6 +128,31 @@ function Visualizer (winnder, console) {
     this.closeElem = this.document.getElementById ('Close');
     this.closeElem.on ('click', function(){
         self.window.close();
+    });
+
+    this.useCustom = this.document.getElementById ('UseCustom');
+    this.usingCustomViews = Boolean (this.useCustom.checked);
+    this.useCustom.on ('change', function(){
+        self.usingCustomViews = Boolean (self.useCustom.checked);
+        if (!self.activePron)
+            return;
+        if (self.usingCustomViews) {
+            // copy view settings from active Pron
+            if (self.activePron.extra.X)
+                self.offsetX = self.activePron.extra.X;
+            if (self.activePron.extra.Y)
+                self.offsetY = self.activePron.extra.Y;
+            if (self.activePron.extra.zoom) {
+                self.zoomRatio = self.activePron.extra.zoom;
+                self.manualZoom = true;
+            }
+        } else {
+            // set view settings to default
+            self.offsetX = 0;
+            self.offsetY = 0;
+            self.manualZoom = false;
+        }
+        self.redraw();
     });
 
     // video controls
@@ -277,22 +319,148 @@ function Visualizer (winnder, console) {
     });
     VolumeCaret.setAttribute (
         'style',
-        // 'left:' + Math.floor (((self.vlc.audio.volume / 100) * VolumeBar.offsetWidth) - VolumeBar.offsetWidth) + 'px'
         'left:0px'
     );
 
-    function killDrags (event) {
+    function killDrags(){
         seekDragging = false;
         volumeDragging = false;
-        setTimeout (function(){
-            seekWasDragging = false;
-            volumeWasDragging = false;
-        }, 50);
     }
     this.document.body.on ('mouseup', killDrags);
     this.document.body.on ('mouseleave', killDrags);
+
+    // context menu setup and display
+    this.contextMenu = this.document.getElementById ('ContextMenu');
+    this.contextMenu.on ('mousedown', function (event) { event.stopPropagation(); return false; });
+    this.contextMenu.on ('selectstart', function(){ return false; });
+    this.videoMenuSection = this.document.getElementById ('CX_Options_Video');
+
+    var audioSectionButton = this.document.getElementById ('CX_Options_Audio');
+    var subtitleSectionButton = this.document.getElementById ('CX_Options_Subtitles');
+    this.audioTrackButtons = audioSectionButton.lastElementChild;
+    this.audioTrackButtons.on ('mousedown', function (event) {
+        event.stopPropagation();
+    });
+    this.subtitleTrackButtons = subtitleSectionButton.lastElementChild;
+    this.subtitleTrackButtons.on ('mousedown', function (event) {
+        event.stopPropagation();
+    });
+    audioSectionButton.on ('click', function(){
+        if (!self.vlc || !self.audioTrackButtons.children.length)
+            return;
+        if (audioSectionButton.hasClass ('open'))
+            audioSectionButton.dropClass ('open');
+        else
+            audioSectionButton.addClass ('open');
+    });
+    subtitleSectionButton.on ('click', function(){
+        if (!self.vlc || !self.subtitleTrackButtons.children.length)
+            return;
+        if (subtitleSectionButton.hasClass ('open'))
+            subtitleSectionButton.dropClass ('open');
+        else
+            subtitleSectionButton.addClass ('open');
+    });
+    this.document.body.on ('mousedown', function (event) {
+        if (event.button != 2) {
+            self.contextMenu.dropClass ('active');
+            return;
+        }
+
+        self.setupContextMenu();
+
+        // clientX, clientY
+        var left = event.clientX;
+        var top = event.clientY;
+        if (left + self.contextMenu.clientWidth > self.window.window.innerWidth)
+            left -= self.contextMenu.clientWidth;
+        if (top + self.contextMenu.clientHeight > self.window.window.innerHeight)
+            top -= self.contextMenu.clientHeight;
+        self.contextMenu.setAttribute ('style', 'left:'+left+'px;top:'+top+'px;');
+        self.contextMenu.addClass ('active');
+    });
+
+    // context menu buttons
+    var resetViewButton = this.document.getElementById ('CX_Options_Reset');
+    resetViewButton.on ('click', function(){
+        self.contextMenu.dropClass ('active');
+        self.offsetX = 0;
+        self.offsetY = 0;
+        self.manualZoom = false;
+        self.redraw();
+        self.manualZoom = true;
+    });
+    var resetVideoButton = this.document.getElementById ('CX_Options_Video_Reset');
+    resetVideoButton.on ('click', function(){
+        self.contextMenu.dropClass ('active');
+        self.videoStart = 0;
+        self.videoEnd = self.vlc.length;
+        delete self.activePron.extra.skip;
+        self.redraw();
+    });
 }
 module.exports = Visualizer;
+
+Visualizer.prototype.setupContextMenu = function(){
+    var self = this;
+    if (!this.vlc)
+        this.videoMenuSection.dropClass ('active');
+    else {
+        this.videoMenuSection.addClass ('active');
+        if (!this.vlc.audio) {
+            console.log ('NO AUDIO');
+            // update when video is loaded
+            this.vlc.events.once ('FrameReady', function(){
+
+            });
+        } else {
+            this.audioTrackButtons.disposeChildren();
+            var trackNum = this.vlc.audio.track;
+            if (trackNum < 0)
+                trackNum = 0;
+            for (var i=0,j=this.vlc.audio.count; i<j; i++) {
+                var trackButton = this.document.createElement ('div');
+                trackButton.className = trackNum == i ? 'CX_Option active' : 'CX_Option';
+                trackButton.setAttribute ('data-index', i);
+                trackButton.on ('click', function (event) {
+                    event.stopPropagation();
+                    self.vlc.audio.track = Number (this.getAttribute ('data-index'));
+                    for (var i=0,j=this.parentNode.children.length; i<j; i++)
+                        if (this.parentNode.children[i].hasClass ('active')) {
+                            this.parentNode.children[i].dropClass ('active');
+                            break;
+                        }
+                    this.addClass ('active');
+                    return false;
+                });
+                trackButton.textContent = this.vlc.audio[i];
+                this.audioTrackButtons.appendChild (trackButton);
+            }
+            this.subtitleTrackButtons.disposeChildren();
+            var subNum = this.vlc.subtitles.track;
+            if (subNum < 0)
+                subNum = 0;
+            for (var i=0,j=this.vlc.subtitles.count; i<j; i++) {
+                var trackButton = this.document.createElement ('div');
+                trackButton.className = trackNum == i ? 'CX_Option active' : 'CX_Option';
+                trackButton.setAttribute ('data-index', i);
+                trackButton.on ('click', function (event) {
+                    event.stopPropagation();
+                    self.vlc.subtitles.track = Number (this.getAttribute ('data-index'));
+                    for (var i=0,j=this.parentNode.children.length; i<j; i++)
+                        if (this.parentNode.children[i].hasClass ('active')) {
+                            this.parentNode.children[i].dropClass ('active');
+                            break;
+                        }
+                    this.addClass ('active');
+                    return false;
+                });
+                trackButton.textContent = this.vlc.subtitles[i];
+                this.subtitleTrackButtons.appendChild (trackButton);
+            }
+        }
+    }
+};
 
 Visualizer.prototype.playpause = function(){
     if (!this.vlc)
@@ -323,7 +491,35 @@ Visualizer.prototype.display = function (prawn) {
 
     var self = this;
 
+    if (this.activePron) {
+        // save any custom view info to disk
+        if (this.offsetX)
+            this.activePron.extra.X = this.offsetX;
+        if (this.offsetY)
+            this.activePron.extra.Y = this.offsetY;
+        if (this.manualZoom || this.offsetX || this.offsetY)
+            this.activePron.extra.zoom = this.zoomRatio;
+        if (this.videoStart)
+            this.activePron.extra.start = this.videoStart;
+        if (this.videoEnd)
+            this.activePron.extra.end = this.videoEnd;
+        this.activePron.saveExtra();
+    }
+
+    this.manualZoom = false;
+    this.offsetX = 0;
+    this.offsetY = 0;
     this.activePron = prawn;
+    if (this.usingCustomViews) {
+        if (prawn.extra.X)
+            this.offsetX = prawn.extra.X;
+        if (prawn.extra.Y)
+            this.offsetY = prawn.extra.Y;
+        if (prawn.extra.zoom) {
+            this.zoomRatio = prawn.extra.zoom;
+            this.manualZoom = true;
+        }
+    }
 
     if (prawn.isImage) {
         this.loadImage (prawn.fullpath, function (err, image) {
@@ -333,6 +529,7 @@ Visualizer.prototype.display = function (prawn) {
             }
             if (self.activePron !== prawn) // not interested in this Pron anymore
                 return;
+            self.setupContextMenu();
             self.controlsElem.dropClass ('video');
             self.controlsElem.addClass ('image');
             self.activeImage = image;
@@ -350,29 +547,16 @@ Visualizer.prototype.display = function (prawn) {
     this.controlsElem.dropClass ('image');
     this.controlsElem.addClass ('video');
     this.vlcElem.addClass ('active');
+    delete this.activeImage;
 
     var currentVLC = this.vlc = chimera.init (this.vlcCanvas);
     this.vlc.play ('file:///' + prawn.fullpath);
 
     this.vlc.events.once ('FrameReady', function (frame) {
-        var canvasWidth = frame.width;
-        var canvasHeight = frame.height;
-        self.vlcCanvas.setAttribute ('width', canvasWidth);
-        self.vlcCanvas.setAttribute ('height', canvasHeight);
-        var containerWidth = self.vlcContainer.clientWidth;
-        var containerHeight = self.vlcContainer.clientHeight;
-        var wideRatio = containerWidth / canvasWidth;
-        var tallRatio = containerHeight / canvasHeight;
-        var useRatio = wideRatio < tallRatio ? wideRatio : tallRatio;
-        var useWidth = Math.floor (canvasWidth * useRatio);
-        var useHeight = Math.floor (canvasHeight * useRatio);
-        self.vlcCanvas.setAttribute (
-            'style',
-            'width:' + Math.floor (canvasWidth * useRatio) + 'px;'
-          + 'height:' + useHeight + 'px;'
-          + 'margin-left:' + Math.max (0, Math.floor((containerWidth - useWidth) / 2)) + 'px;'
-          + 'margin-top:' + Math.max (0, Math.floor((containerHeight - useHeight) / 2)) + 'px;'
-        );
+        self.vlcCanvas.setAttribute ('width', frame.width);
+        self.vlcCanvas.setAttribute ('height', frame.height);
+        self.redraw();
+        self.setupContextMenu();
     });
 
     var SeekBar = this.document.getElementById ('SeekBar');
@@ -383,6 +567,8 @@ Visualizer.prototype.display = function (prawn) {
             return;
         clearTimeout (isPlayingTimeout);
         isPlayingTimeout = setTimeout (function(){
+            if (self.vlc !== currentVLC)
+                return;
             if (self.vlc.playing)
                 PlayButton.addClass ('playing');
             else
@@ -484,74 +670,108 @@ Visualizer.prototype.loadImage = function (filepath, callback) {
 };
 
 Visualizer.prototype.redraw = function(){
-    if (!this.activeImage)
-        return;
-
-    var width = Math.floor (this.activeImage.width);
-    var height = Math.floor (this.activeImage.height);
+    var width, height;
+    if (this.vlc) {
+        console.log (this.vlcCanvas.getAttribute ('width'));
+        width = this.vlcCanvas.getAttribute ('width') || 800;
+        height = this.vlcCanvas.getAttribute ('height') || 600;
+    } else {
+        if (!this.activeImage)
+            return;
+        width = Math.floor (this.activeImage.naturalWidth);
+        height = Math.floor (this.activeImage.naturalHeight);
+    }
     var canvasWidth = this.canvas.width;
     var canvasHeight = this.canvas.height;
+    var wideRatio = canvasWidth / width;
+    var tallRatio = canvasHeight / height;
+
+    this.context.clearRect (0, 0, canvasWidth, canvasHeight);
+
+    var useRatio;
+    if (this.mode == 'normal') {
+        if (this.manualZoom)
+            useRatio = this.zoomRatio;
+        else {
+            if (wideRatio < 1)
+                if (tallRatio < 1)
+                    useRatio = wideRatio >= tallRatio ? tallRatio : wideRatio;
+                else
+                    useRatio = wideRatio;
+            else if (tallRatio < 1)
+                useRatio = tallRatio;
+            else
+                useRatio = 1;
+        }
+    } else {
+        // zoom and flood modes
+        if (this.manualZoom)
+            useRatio = this.zoomRatio;
+        else
+            useRatio = wideRatio >= tallRatio ? tallRatio : wideRatio;
+
+        if (this.mode == 'flood' && !this.manualZoom) {
+            width *= 1.2;
+            height *= 1.2;
+            useRatio *= 1.2;
+        }
+    }
+
+    this.zoomRatio = useRatio;
+
+    width = Math.floor (width * useRatio);
+    height = Math.floor (height * useRatio);
+    var top = Math.floor (( canvasHeight - height ) / 2);
+    var left = Math.floor (( canvasWidth - width ) / 2);
+    if (this.offsetX)
+        left += this.offsetX;
+    if (this.offsetY)
+        top += this.offsetY;
+
+    // will these settings make the image too small or place it offscreen?
+    // if so, adjust them
+    if (useRatio < 1) {
+        if (width < MIN_WIDTH) {
+
+        }
+        if (height < MIN_HEIGHT) {
+
+        }
+    }
+    if (top + height < MIN_SHOWING) {
+        // off top edge
+
+    }
+    if (left > canvasWidth - MIN_SHOWING) {
+        // off right edge
+
+    }
+    if (top > canvasHeight - MIN_SHOWING) {
+        // off bottom edge
+
+    }
+    if (left + canvasWidth < MIN_SHOWING) {
+        // off left edge
+
+    }
 
     if (this.dancer.firstChild) {
         this.dancer.firstChild.dispose();
         this.dancer.removeAttribute ('style');
     }
-    this.context.clearRect (0, 0, canvasWidth, canvasHeight);
-
-    // normal mode
-    if (this.mode == 'normal') {
-        var wideRatio = canvasWidth / width;
-        var tallRatio = canvasHeight / height;
-        if (wideRatio < 1 || tallRatio < 1) {
-            if (wideRatio < tallRatio) {
-                width = Math.floor (width * wideRatio);
-                height = Math.floor (height * wideRatio);
-            } else {
-                width = Math.floor (width * tallRatio);
-                height = Math.floor (height * tallRatio);
-            }
-        }
-        var top = Math.floor (( canvasHeight - height ) / 2);
-        var left = Math.floor (( canvasWidth - width ) / 2);
-
-        if (this.activeType != 'gif' && this.activePron.filename.slice (-4) != '.gif') {
-            this.context.fillRect (left, top, width, height);
-            this.context.drawImage (this.activeImage, left, top, width, height);
-        } else {
-            this.dancer.setAttribute (
-                'style',
-                'top:'+top+'px;left:'+left+'px;width:'+width+'px;height:'+height+'px;'
-            );
-            this.dancer.appendChild (this.activeImage);
-        }
-        return;
-    }
-
-    // zoom and flood modes
-    var wideRatio = canvasWidth / width;
-    var tallRatio = canvasHeight / height;
-    if (wideRatio > tallRatio) {
-        width *= tallRatio;
-        height *= tallRatio;
-    } else if (wideRatio < tallRatio) {
-        width *= wideRatio;
-        height *= wideRatio;
-    } else {
-        width *= wideRatio;
-        height *= wideRatio;
-    }
-
-    if (this.mode == 'flood') {
-        width *= 1.2;
-        height *= 1.2;
-    }
-
-    var top = Math.floor (( canvasHeight - height ) / 2);
-    var left = Math.floor (( canvasWidth - width ) / 2);
+    if (this.vlc) {
+        console.log ('set vlc', width, height);
+        this.vlcCanvas.setAttribute (
+            'style',
+            'width:' + width + 'px;'
+          + 'height:' + height + 'px;'
+          + 'margin-left:' + left + 'px;'
+          + 'margin-top:' + top + 'px;'
+        );
+    } else if (this.activeType != 'gif' && this.activePron.filename.slice (-4) != '.gif') {
         this.context.fillRect (left, top, width, height);
-    if (this.activeType != 'gif' && this.activePron.filename.slice (-4) != '.gif')
         this.context.drawImage (this.activeImage, left, top, width, height);
-    else {
+    } else {
         this.dancer.setAttribute (
             'style',
             'top:'+top+'px;left:'+left+'px;width:'+width+'px;height:'+height+'px;'

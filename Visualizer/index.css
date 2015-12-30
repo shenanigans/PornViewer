@@ -177,6 +177,10 @@ html {
     cursor: none;
 }
 
+.draggingImage {
+    cursor: move;
+}
+
 #Controls {
     -webkit-app-region: drag;
     -webkit-user-select: none;
@@ -212,7 +216,8 @@ html {
 }
 
 #Controls input {
-    width: 5em;
+    margin: 0;
+    vertical-align: middle;
 }
 
 #Controls:hover, #Controls.visible {
@@ -267,16 +272,26 @@ html {
 }
 
 #ContextMenu {
-    display: none;
+    visibility: hidden;
     position: fixed;
     top: 50px;
     left: 460px;
     font-size: 16px;
+    background-color: #fff;
+    font-weight: 900;
+    font-family: verdana;
 }
 
-#ContextMenu > * {
-    background-color: #fff;
-    box-shadow: 0 0 1.7em rgba(0, 0, 0, 0.27);
+#ContextMenu.active {
+    visibility: visible;
+}
+
+#CX_Options_Video {
+    color: #BEBEBE;
+}
+
+#CX_Options_Video.active {
+    color: #000;
 }
 
 #ContextMenuKeyboardTarget {
@@ -300,6 +315,16 @@ html {
     border-bottom: 1px solid #D5D5D5;
     cursor: pointer;
     transition: background-color 0.3s ease-out;
+    background-color: #fff;
+}
+
+.CX_Option.active {
+    background-color: #860281 !important;
+    color: #fff !important;
+}
+
+.CX_Option.active .CX_Shortcut {
+    color: #FF63F9 !important;
 }
 
 .CX_Section {
@@ -307,17 +332,15 @@ html {
     border-bottom: 1px solid #D5D5D5;
     cursor: pointer;
     transition: background-color 0.3s ease-out;
+    position: relative;
 }
 
-.CX_Option.active, .CX_Option.active {
-    background-color: #FF5CF9;
-}
-
-.CX_Section_Children {
+.CX_Children {
     display: none;
+    margin-top: 0.2em;
 }
 
-.CX_Section.active .CX_Section_Children {
+.open .CX_Children {
     display: block;
 }
 
@@ -331,14 +354,42 @@ html {
     display: inline-block;
 }
 
-#CX_Options_Video {
-
-}
-
 #CX_Details_Time {
     min-height: 100px;
 }
 
-.CX_Option:hover, .CX_Section:hover {
-    background-color: #FFE0FE;
+.active > .CX_Option:hover, .active > .CX_Section:hover {
+    background-color: #FDC4FC;
+}
+
+.CX_Shortcut {
+    color: #D000C8;
+    font-weight: 900;
+}
+
+#CX_Options_Video .CX_Shortcut {
+    color: #FF7EFA;
+}
+
+#CX_Options_Video.active .CX_Shortcut {
+    color: #D000C8;
+}
+
+.mono {
+    font-family: monospace;
+}
+
+.openable {
+    position: absolute;
+    top: 0.15em;
+    right: 0.3em;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0.7em 0 0.7em 15px;
+    border-color: transparent transparent transparent #C5C5C5;
+}
+
+.CX_Section.open > .openable {
+    display: none;
 }

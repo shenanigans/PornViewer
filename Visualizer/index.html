@@ -18,10 +18,12 @@
         <div id="ImageControls" class="controlPane">
             <label for="MaxZoom">mode</label>
             <select id="Mode">
-                <option value="normal">100%</option>
+                <option value="normal">fit</option>
                 <option value="zoom">zoom</option>
                 <option value="flood">flood</option>
             </select>
+            <label for="UseCustom">Custom Zoom</label>
+            <input id="UseCustom" type="checkbox" checked />
         </div>
         <div id="VideoControls" class="controlPane">
             <div id="PlayPause">
@@ -40,31 +42,41 @@
     </div>
     <div id="ContextMenu">
         <input id="ContextMenuKeyboardTarget" type="text" />
-        <div id="CX_Options_Video" class="CX_OptionList">
-            <div id="CX_Opt_Start" class="CX_Option">
+        <div id="CX_Options_Reset" class="CX_Option">
+            <span id="CX_Short_Reset" class="CX_Shortcut">R</span>eset View
+        </div>
+        <span id="CX_Options_Video">
+            <div id="CX_Options_Audio" class="CX_Section">
+                <span id="CX_Short_Audio" class="CX_Shortcut">A</span>udio Stream
+                <div class="openable"></div>
+                <div class="CX_Children">
+                    <div class="CX_Option">
+                        <span class="CX_Shortcut mono">0</span> disable
+                    </div>
+                </div>
+            </div>
+            <div id="CX_Options_Subtitles" class="CX_Section">
+                Sub<span id="CX_Short_Subtitles" class="CX_Shortcut">t</span>itles
+                <div class="openable"></div>
+                <div class="CX_Children">
+                    <div class="CX_Option">
+                        <span class="CX_Shortcut mono">0</span> disable
+                    </div>
+                </div>
+            </div>
+            <div id="CX_Options_Start" class="CX_Option">
                 Always <span id="CX_Short_Start" class="CX_Shortcut">S</span>tart Here
             </div>
-            <div id="CX_Opt_Stop" class="CX_Option">
+            <div id="CX_Options_Stop" class="CX_Option">
                 Always Sto<span id="CX_Short_Stop" class="CX_Shortcut">p</span> Here
             </div>
-            <div id="CX_Opt_Skip" class="CX_Option active">
+            <div id="CX_Options_Skip" class="CX_Option">
                 S<span id="CX_Short_Skip" class="CX_Shortcut">k</span>ip This Part
             </div>
-            <div id="CX_Opt_Audio" class="CX_Section">
-                <span id="CX_Short_Audio" class="CX_Shortcut">A</span>udio Options
+            <div id="CX_Options_Video_Reset" class="CX_Option">
+                Reset <span id="CX_Short_Reset" class="CX_Shortcut">V</span>ideo Playback
             </div>
-            <div id="CX_Opt_Subtitles" class="CX_Section">
-                Sub<span id="CX_Short_Subtitles" class="CX_Shortcut">t</span>itle Options
-            </div>
-        </div>
-        <div id="CX_Details_Time" class="CX_Detail_Area">
-            <div id="CX_Time_Zero">
-
-            </div>
-            <div id="CX_Time_One">
-
-            </div>
-        </div>
+        </span>
     </div>
 </body>
 </html>

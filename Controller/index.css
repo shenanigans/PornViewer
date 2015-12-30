@@ -7,7 +7,7 @@ html {
 body {
     height: 100%;
     margin: 0;
-    background-color: rgba(255, 255, 255, 0.92);
+    background-color: #fff;
 }
 
 #Bar {
@@ -238,6 +238,7 @@ body {
     padding: 1px;
     position: relative;
     overflow: hidden;
+    cursor: pointer;
 }
 
 .thumbs .bogus {
@@ -255,7 +256,6 @@ body {
 }
 
 .thumb img {
-    cursor: pointer;
 }
 
 .thumb.selected {
@@ -303,4 +303,33 @@ body {
 .thumb.dragging {
     opacity: 0.5;
     background-color: transparent;
+}
+
+#MultidragOuter {
+    position: absolute;
+    z-index: -1;
+}
+
+#MultidragOuter div {
+    position: relative;
+    top: -6px;
+    left: -6px;
+}
+
+#MultidragOuter, #MultidragOuter div {
+    background-color: #FFE7FE;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.73);
+}
+
+#Multidrag {
+    min-width: 52px;
+    padding: 0 4px;
+    height: 60px;
+    font-size: 48px;
+    text-align: center;
+}
+
+#MultidragWhiteout {
+    width: 200%;
+    background-color: #fff;
 }
