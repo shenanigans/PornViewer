@@ -13,16 +13,12 @@ var CONTROLLER_MIN_WIDTH = CONTROLLER_BASE_WIDTH + 150;
 var CONTROLS_TIMEOUT = 1500;
 
 //
-// Presently only a single display mode is supported - the dual window display mode. To rehome the
-// Controller and Visualizer together, a pair of iframes should do the trick.
+// Presently only a single display mode is supported - the dual window display mode. A few things
+// still remain to be factored into this script from the Controller and Visualizer scripts before
+// these views will be portable enough to embedded in the same Window.
 //
 
 var visualizer, controller;
-// var win = gui.Window.get();
-// win.on ('loaded', function(){
-//     win.height += win.window.document.body.clientHeight - win.window.innerHeight;
-//     win.show();
-// });
 
 // launch the Visualizer Window
 visualizerWindow = gui.Window.open ('./Visualizer/index.html', {
@@ -122,8 +118,8 @@ if (!winState) {
 }
 
 // uncomment to show devtools at startup
-// var Window = gui.Window.get();
-// Window.on ('loaded', function(){ Window.showDevTools(); });
+var Window = gui.Window.get();
+Window.on ('loaded', function(){ Window.showDevTools(); });
 
 // basic cross-window event listeners
 controllerWindow.on ('close', function(){

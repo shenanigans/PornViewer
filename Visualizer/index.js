@@ -36,9 +36,6 @@ function Visualizer (winnder, console) {
         self.window.minimize();
     });
     this.dancer = this.document.getElementById ('Dancer');
-    this.vlcElem = this.document.getElementById ('VLC');
-    this.vlcCanvas = this.document.getElementById ('VideoCanvas');
-    this.vlcContainer = this.document.getElementById ('VideoContainer');
 
     var maxElem = this.document.getElementById ('Maximize');
     maxElem.on ('click', function(){
@@ -156,8 +153,11 @@ function Visualizer (winnder, console) {
     });
 
     // video controls
+    this.vlcElem = this.document.getElementById ('VLC');
+    this.vlcCanvas = this.document.getElementById ('VideoCanvas');
+    this.vlcContainer = this.document.getElementById ('VideoContainer');
     var PlayButton = this.document.getElementById ('PlayPause');
-    var SeekBar = this.SeekBar = this.document.getElementById ('SeekBar');
+    var SeekBar = this.seekBar = this.document.getElementById ('SeekBar');
     var SeekCaret = this.SeekCaret = this.document.getElementById ('SeekCaret');
     var MuteIndicator = this.document.getElementById ('MuteIndicator');
     var VolumeBar = this.document.getElementById ('VolumeBar');
@@ -185,12 +185,15 @@ function Visualizer (winnder, console) {
         if (!self.vlc.length)
             return false;
         seekDragging = true;
-        var position = event.layerX / this.clientWidth;
+
+        var position = (event.screenX - this.getBoundingClientRect().left) / this.clientWidth;
         self.vlc.time = self.vlc.length * position;
-        SeekCaret.setAttribute ('style', 'left:' + (position * this.clientWidth) + 'px;');
+        SeekCaret.setAttribute ('style', 'left:' + Math.floor (position * this.clientWidth) + 'px;');
         return false;
     });
     SeekCaret.on ('mousedown', function (event) {
+        if (event.target !== SeekCaret)
+            return;
         event.stopPropagation();
         if (!self.vlc)
             return false;
@@ -478,10 +481,10 @@ Visualizer.prototype.jump = function (timeShift) {
 
     // adjust the caret
     var position = newTime / this.vlc.length;
-    this.SeekCaret.setAttribute ('style', 'left:' + (position * this.SeekBar.clientWidth) + 'px;');
+    this.SeekCaret.setAttribute ('style', 'left:' + (position * this.seekBar.clientWidth) + 'px;');
 };
 
-// Visualizer.prototype.display = function (filepath, type) {
+var SEEK_TIME_HYSTERESIS = 7;
 Visualizer.prototype.display = function (prawn) {
     if (this.vlc) {
         this.vlc.stop();
@@ -559,12 +562,13 @@ Visualizer.prototype.display = function (prawn) {
         self.setupContextMenu();
     });
 
-    var SeekBar = this.document.getElementById ('SeekBar');
     var SeekCaret = this.document.getElementById ('SeekCaret');
+    var SeekTime = this.document.getElementById ('SeekTime');
     var isPlayingTimeout;
     this.vlc.onTimeChanged = function (time) {
         if (self.vlc !== currentVLC)
             return;
+        SeekTime.textContent = toTimeStr (time);
         clearTimeout (isPlayingTimeout);
         isPlayingTimeout = setTimeout (function(){
             if (self.vlc !== currentVLC)
@@ -574,11 +578,19 @@ Visualizer.prototype.display = function (prawn) {
             else
                 PlayButton.dropClass ('playing');
         }, 300);
-        var maxOffset = SeekBar.clientWidth - SeekCaret.firstChild.clientWidth;
+        var maxOffset = self.seekBar.clientWidth - SeekCaret.firstChild.clientWidth;
         SeekCaret.setAttribute (
             'style',
             'left:' + Math.floor (maxOffset * (time / self.vlc.length)) + 'px'
         );
+
+        var seekRect = self.seekBar.getBoundingClientRect();
+        var caretRect = SeekCaret.getBoundingClientRect();
+        var rightEdge = caretRect.right + SeekTime.clientWidth;
+        if (rightEdge > seekRect.right)
+            SeekTime.addClass ('left');
+        else if (seekRect.right - rightEdge > SEEK_TIME_HYSTERESIS)
+            SeekTime.dropClass ('left');
     };
     var PlayButton = this.document.getElementById ('PlayPause');
     this.vlc.onPlaying = function(){
@@ -598,6 +610,116 @@ Visualizer.prototype.display = function (prawn) {
             return;
         PlayButton.dropClass ('playing');
     };
+
+    // playback start / stop / skip
+
+};
+
+var MINUTE = 1000 * 60;
+var HOUR = MINUTE * 60;
+function toTimeStr (mils) {
+    var hours = Math.floor (mils / HOUR);
+    var minutes = Math.floor ((mils % HOUR) / MINUTE);
+    var seconds = Math.floor ((mils % MINUTE) / 1000);
+    var str = '';
+    if (hours)
+        str += hours + ':';
+    str += hours ? minutes < 10 ? '0' + minutes : minutes : minutes;
+    str += ':' + (seconds < 10 ? '0' + seconds : seconds);
+    return str;
+}
+
+Visualizer.prototype.setStartTime = function(){
+    this.activePron.extra.start = this.vlc.time;
+    var startBlock = this.document.createElement ('div');
+    startBlock.setAttribute ('id', 'StartBlock');
+    var timeSpan = this.document.createElement ('span');
+    timeSpan.textContent = toTimeStr (this.vlc.time);
+    startBlock.appendChild (timeSpan);
+    startBlock.appendChild (this.document.createElement ('div'));
+    var handle = this.document.createElement ('div');
+    handle.className = 'seekHandle';
+    handle.setAttribute ('id', 'FirstHandle');
+    startBlock.appendChild (handle);
+
+    // mouse enter/leave events make it easier to grab the handles
+    var startTimeout;
+    startBlock.on ('mouseenter', function(){
+        if (self.imageDragging || seekDragging || volumeDragging)
+            return;
+        clearTimeout (startTimeout);
+        if (startBlock.hasClass ('showHandles'))
+            return;
+        for (var i=0,j=self.seekBar.children.length; i<j; i++)
+            self.seekBar.children[i].dropClass ('showHandles');
+        startBlock.addClass ('showHandles');
+    });
+    startBlock.on ('mouseleave', function(){
+        startTimeout = setTimeout (function(){
+            startBlock.dropClass ('showHandles');
+        }, 1200);
+    });
+
+    // drag the handle to adjust the start time
+    var dragging = false;
+    handle.on ('mousedown', function(){
+        dragging = true;
+    });
+    handle.on ('mouseup', function(){
+        dragging = false;
+    });
+};
+
+Visualizer.prototype.setEndTime = function(){
+    this.activePron.extra.start = this.vlc.time;
+    var endBlock = this.document.createElement ('div');
+    endBlock.setAttribute ('id', 'EndBlock');
+    var timeSpan = this.document.createElement ('span');
+    timeSpan.textContent = toTimeStr (this.vlc.time);
+    endBlock.appendChild (timeSpan);
+    endBlock.appendChild (this.document.createElement ('div'));
+    var handle = this.document.createElement ('div');
+    handle.className = 'seekHandle';
+    handle.setAttribute ('id', 'FirstHandle');
+    endBlock.appendChild (handle);
+
+    // mouse enter/leave events make it easier to grab the handles
+    var endTimeout;
+    endBlock.on ('mouseenter', function(){
+        if (self.imageDragging || seekDragging || volumeDragging)
+            return;
+        clearTimeout (endTimeout);
+        if (endBlock.hasClass ('showHandles'))
+            return;
+        for (var i=0,j=self.seekBar.children.length; i<j; i++)
+            self.seekBar.children[i].dropClass ('showHandles');
+        endBlock.addClass ('showHandles');
+    });
+    endBlock.on ('mouseleave', function(){
+        endTimeout = setTimeout (function(){
+            endBlock.dropClass ('showHandles');
+        }, 1200);
+    });
+};
+
+Visualizer.prototype.addSkipSection = function(){
+    var testBlock = startBlock.nextElementSibling;
+    var testTimeout;
+    testBlock.on ('mouseenter', function(){
+        if (self.imageDragging || seekDragging || volumeDragging)
+            return;
+        clearTimeout (testTimeout);
+        if (testBlock.hasClass ('showHandles'))
+            return;
+        for (var i=0,j=self.seekBar.children.length; i<j; i++)
+            self.seekBar.children[i].dropClass ('showHandles');
+        testBlock.addClass ('showHandles');
+    });
+    testBlock.on ('mouseleave', function(){
+        testTimeout = setTimeout (function(){
+            testBlock.dropClass ('showHandles');
+        }, 1200);
+    });
 };
 
 Visualizer.prototype.preload = function (filepath) {

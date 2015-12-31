@@ -54,16 +54,16 @@ html {
 #VideoContainer canvas { }
 
 .controlPane {
-    display: none;
-    position: absolute;
-    right: 140px;
-    bottom: 0;
-    left: 34px;
-    height: 2em;
+    position: relative;
+    margin-top: 4px;
 }
 
 .controlPane > * {
     -webkit-app-region: no-drag;
+}
+
+#VideoControls {
+    display: none;
 }
 
 .video #VideoControls {
@@ -72,7 +72,7 @@ html {
 
 #PlayPause {
     width: 40px;
-    height: 32px;
+    height: 26px;
     cursor: pointer;
     position: relative;
     background-color: #880198;
@@ -80,17 +80,17 @@ html {
 
 #PlayButton {
     position: absolute;
-    top: 8px;
+    top: 5px;
     left: 15px;
-    border-top: 10px solid transparent;
-    border-bottom: 10px solid transparent;
-    border-left: 15px solid #FFF;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 13px solid #FFF;
 }
 
 #PlayPause .pause {
     display: none;
     position: absolute;
-    top: 9px;
+    top: 5px;
     bottom: 4px;
     width: 3px;
     background-color: #FFF;
@@ -115,7 +115,7 @@ html {
 
 #SeekBar {
     position: absolute;
-    top: 11px;
+    top: 8px;
     right: 217px;
     bottom: 6px;
     left: 3em;
@@ -129,31 +129,49 @@ html {
     left: 0;
 }
 
-#SeekCaret div {
+#SeekCaret .caret {
     position: absolute;
     cursor: -webkit-grab;
     border: 6px solid #64006F;
     width: 3px;
-    height: 15px;
+    height: 12px;
     top: -6px;
     left: -3px;
 }
 
+#SeekCaret .text {
+    position: absolute;
+    top: -3px;
+    left: 0;
+    font-size: 14px;
+    color: #6B0166;
+    padding-left: 13px;
+    z-index: 9001;
+}
+
+#SeekCaret .text.left {
+    left: initial;
+
+    right: 0;
+    padding-left: 0;
+    padding-right: 3px;
+}
+
 #MuteIndicator {
     position: absolute;
-    top: 11px;
-    right: 180px;
+    top: 7px;
+    right: 171px;
     height: 17px;
 }
 
 #VolumeBar {
     position: absolute;
-    top: 9px;
-    right: 0;
+    top: 4px;
+    right: 14px;
     width: 0;
     height: 0;
     border-bottom: 19px solid #FFB2FC;
-    border-left: 170px solid transparent;
+    border-left: 145px solid transparent;
     cursor: pointer;
 }
 
@@ -167,9 +185,9 @@ html {
     position: absolute;
     left: -4px;
     width: 8px;
-    height: 27px;
+    height: 24px;
     background-color: #64006F;
-    top: -4px;
+    top: -2px;
     cursor: -webkit-grab;
 }
 
@@ -184,7 +202,6 @@ html {
 #Controls {
     -webkit-app-region: drag;
     -webkit-user-select: none;
-    padding: 4px;
     position: fixed;
     top: 0;
     right: 0;
@@ -195,7 +212,7 @@ html {
     color: #fff;
     font-family: verdana;
     text-align: center;
-    height: 19px;
+    /* height: 19px; */
 }
 
 #EventScreen {
@@ -230,15 +247,15 @@ html {
 
 #Drag {
     float: left;
-    height: 1.5em;
-    margin-top: -0.1em;
+    height: 21px;
+    margin: 2px;
 }
 
 .controlButton {
     float: right;
-    height: 1.7em;
-    width: 2.5em;
-    margin: -0.2em 0 0 0.1em;
+    height: 23px;
+    width: 31px;
+    margin: 2px;
     transition: background-color 0.3s ease-in-out;
     cursor: pointer;
     -webkit-app-region: no-drag;
@@ -392,4 +409,108 @@ html {
 
 .CX_Section.open > .openable {
     display: none;
+}
+
+#StartBlock {
+    width: 3em;
+}
+
+#EndBlock {
+    width: 3em;
+    right: 0;
+}
+
+#TestBlock {
+    left: 15em;
+    width: 1em;
+}
+
+.noplayBlock {
+    background-color: #6A7488;
+    height: 100%;
+    position: absolute;
+}
+
+.seekHandle {
+    position: absolute;
+    display: none;
+    cursor: -webkit-grab;
+    min-height: 1.2em;
+    width: 0;
+}
+
+.noplayBlock:hover .seekHandle, .noplayBlock.showHandles .seekHandle {
+    display: inline-block;
+}
+
+.seekHandle div {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+}
+
+.seekHandle span {
+    background-color: #343434;
+    padding: 0.1em 0.2em;
+    color: #fff;
+    box-shadow: 0 0 0.5em rgba(0, 0, 0, 0.58);
+}
+
+.startHandle {
+    bottom: -26px;
+    left: 0;
+}
+
+.startHandle div {
+    border-width: 21px 0 0 0.4em;
+    border-color: transparent transparent transparent #343434;
+    top: -22px;
+    left: 0;
+}
+
+.startHandle span, #EndBlock .startHandle span {
+    border-radius: 0 0.2em 0.2em 0.2em;
+}
+
+.endHandle {
+    bottom: -53px;
+    right: 0;
+    text-align: right;
+}
+
+.endHandle div {
+    border-width: 47px 0.4em 0 0;
+    border-color: transparent #343434 transparent transparent;
+    top: -49px;
+    right: 0;
+}
+
+.endHandle span, #StartBlock .endHandle span {
+    position: absolute;
+    top: -2px;
+    right: 0;
+    border-radius: 0.2em 0 0.2em 0.2em;
+}
+
+#StartBlock .endHandle {
+    right: 0;
+    bottom: -26px;
+}
+
+#StartBlock .endHandle div {
+    border-width: 21px 0.4em 0 0;
+    top: -23px;
+}
+
+#EndBlock .startHandle {
+    bottom: -26px;
+    right: 100%;
+}
+
+#EndBlock .startHandle div {
+    border-width: 21px 0 0 0.4em;
+    border-color: transparent transparent transparent #343434;
+    top: -22px;
+    left: 0;
 }
