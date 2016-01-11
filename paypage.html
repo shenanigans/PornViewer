@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://checkout.stripe.com/checkout.js"></script>
+    <script>
+var ontoken, onopen, onclose;
+function setup (token, open, close){
+    ontoken = token;
+    onopen = open;
+    onclose = close;
+}
+
+var handler = StripeCheckout.configure ({
+    key:                'pk_test_6pRNASCoBOKtIshFeQd4XMUh',
+    image:              '/img/documentation/checkout/marketplace.png',
+    locale:             'auto',
+    allowRememberMe:    false,
+    bitcoin:            true,
+    alipay:             true,
+    token:              function(){ ontoken.apply (this, arguments); },
+    opened:             function(){ onopen.apply (this, arguments); },
+    closed:             function(){ onclose.apply (this, arguments); }
+});
+
+function handle (price) {
+    handler.open({
+        name:           'PornViewer',
+        description:    'Thanks for your generosity!',
+        amount:         price || 500
+    });
+}
+    </script>
+</head>
+<body>
+
+</body>
+</html>

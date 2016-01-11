@@ -119,19 +119,63 @@ if (!winState) {
 
 // uncomment to show devtools at startup
 var Window = gui.Window.get();
-Window.on ('loaded', function(){ Window.showDevTools(); });
+Window.on ('loaded', function(){
+    scum (Window.window);
+    var dorkument = Window.window.document;
+    // Window.show();
+    // Window.showDevTools();
+
+    var payAmount = dorkument.getElementById ('PayAmount');
+    payAmount.on ('keypress', function (event) {
+        var current = payAmount.value;
+        var next = current + String.fromCharCode (event.charCode);
+        var nextNum = Number (next);
+        if (isNaN (nextNum))
+            return false;
+        if (nextNum < 5)
+            return false;
+        return true;
+    });
+
+    var payFrame = dorkument.getElementById ('PayFrame');
+    payFrame.contentWindow.setup (
+        function (token) {
+            console.log ('token', token);
+        },
+        function(){
+            payFrame.className = 'active';
+        },
+        function(){
+            payFrame.className = '';
+        }
+    );
+    dorkument.getElementById ('PayMe').on ('click', function(){
+        var innerDocument = payFrame.contentDocument.body.children[0].contentDocument;
+        var newStyle = innerDocument.createElement ('style');
+        newStyle.innerHTML = ".overlayView.active { overflow:hidden !important; }";
+        innerDocument.head.appendChild (newStyle);
+        payFrame.contentWindow.handle (Math.floor (payAmount.value * 100));
+    });
+});
 
 // basic cross-window event listeners
 controllerWindow.on ('close', function(){
     visualizerWindow.close();
     controllerWindow.close (true);
-    setTimeout(function(){ gui.App.quit(); }, 50);
+    shutdown();
 });
 visualizerWindow.on ('close', function(){
     controllerWindow.close();
     visualizerWindow.close (true);
-    setTimeout(function(){ gui.App.quit(); }, 50);
+    shutdown();
 });
+
+function shutdown(){
+
+    setTimeout (function(){
+        gui.App.quit();
+    }, 50);
+}
 
 // load opened file or last path
 var openPath, openDir, ext;
@@ -162,36 +206,38 @@ if (!openDir && !(openDir = window.localStorage.lastPath))
 
 function handleKey (event) {
     if (!event.altKey && !event.ctrlKey) {
-        if (event.keyCode >= 37 && event.keyCode <= 40)
+        if (event.keyCode >= 37 && event.keyCode <= 40) {
             controller.go (event.keyCode);
-        else if (event.keyCode == 32)
+            return false;
+        } else if (event.keyCode == 32) {
             visualizer.playpause();
-        return false;
+            return false;
+        }
+        return true;
     }
 
     if (!visualizer.vlc)
-        return false;
+        return true;
     var timeShift;
     switch (event.keyCode) {
         case 37:
-            timeShift = -3 * 1000;
-            break;
-        case 38:
-            timeShift = 15 * 1000;
-            break;
-        case 39:
-            timeShift = 3 * 1000;
-            break;
-        case 40:
             timeShift = -15 * 1000;
             break;
+        case 38:
+            timeShift = 90 * 1000;
+            break;
+        case 39:
+            timeShift = 15 * 1000;
+            break;
+        case 40:
+            timeShift = -90 * 1000;
+            break;
         default:
-            return false;
+            return true;
     }
     if (event.shiftKey)
-        timeShift *= 5;
+        timeShift /= 3;
     visualizer.jump (timeShift);
-    bumpControls();
     return false;
 }
 

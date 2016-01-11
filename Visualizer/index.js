@@ -12,6 +12,8 @@ var RE_LEFT = /left:(-?\d+)px/;
 var MIN_WIDTH = 10;
 var MIN_HEIGHT = 10;
 var MIN_SHOWING = 5;
+var MERGE_BLOCK = 0.5;
+var DELETE_BLOCK = 0.3;
 function Visualizer (winnder, console) {
     this.window = winnder;
     this.document = winnder.window.document;
@@ -29,6 +31,7 @@ function Visualizer (winnder, console) {
 
     // set up our DOM presence
     this.controlsElem = this.document.getElementById ('Controls');
+    this.controlsElem.on ('mousedown', function (event) { event.stopPropagation(); });
     this.canvas = this.document.getElementById ('Display');
     this.canvas.width = this.canvas.clientWidth;
     this.canvas.height = this.canvas.clientHeight;
@@ -64,6 +67,55 @@ function Visualizer (winnder, console) {
     this.manualOffset = false;
     this.offsetX = 0;
     this.offsetY = 0;
+    function clearDrag(){
+        self.draggingImage = false;
+        var item = self.draggingItem;
+        delete self.draggingItem;
+        if (!item)
+            return;
+        if (!item.hasClass ('seekHandle'))
+            return;
+
+        // clean up the seek bar
+        var lastBlock, lastRight;
+        var children = Array.apply ([], self.seekBar.children);
+        for (var i=0,j=children.length; i<j; i++) {
+            var block = children[i];
+            if (!block.hasClass ('noplayBlock'))
+                continue;
+
+            var blockLeft = Number (block.style.left.slice(0, -1))
+            var blockRight = 100 - Number (block.style.right.slice (0, -1));
+            if (Math.abs (blockRight - blockLeft) <= DELETE_BLOCK) {
+                block.dispose();
+                continue;
+            }
+
+            if (!lastBlock || Math.abs (lastRight - blockLeft) > MERGE_BLOCK) {
+                lastBlock = block;
+                lastRight = blockRight;
+                continue;
+            }
+
+            // merge the last block and this one
+            if (block.getAttribute ('id') == 'EndBlock') {
+                // merge right over left
+                block.firstElementChild.dispose();
+                block.appendChild (lastBlock.firstElementChild);
+                block.style.left = lastBlock.style.left;
+                lastBlock.dispose();
+            } else {
+                // merge left over right
+                lastBlock.lastElementChild.dispose();
+                lastBlock.appendChild (block.lastElementChild);
+                lastBlock.style.right = block.style.right;
+                block.dispose();
+            }
+
+            lastBlock = block;
+            lastRight = blockRight;
+        }
+    }
     this.document.on ('mousedown', function (event) {
         if (event.button != 0)
             return;
@@ -73,13 +125,16 @@ function Visualizer (winnder, console) {
     this.document.body.on ('mouseup', function(){
         self.document.body.dropClass ('draggingImage');
         self.imageDragging = false;
+        clearDrag();
     });
     this.document.body.on ('mouseleave', function(){
         self.document.body.dropClass ('draggingImage');
         self.imageDragging = false;
+        clearDrag();
     });
     this.document.body.on ('mousemove', function (event) {
-        if (!self.imageDragging) return;
+        if (self.draggingItem || !self.imageDragging)
+            return true;
         self.maxOffset = true;
         self.offsetX += event.movementX;
         self.offsetY += event.movementY;
@@ -158,7 +213,8 @@ function Visualizer (winnder, console) {
     this.vlcContainer = this.document.getElementById ('VideoContainer');
     var PlayButton = this.document.getElementById ('PlayPause');
     var SeekBar = this.seekBar = this.document.getElementById ('SeekBar');
-    var SeekCaret = this.SeekCaret = this.document.getElementById ('SeekCaret');
+    var SeekCaret = this.seekCaret = this.document.getElementById ('SeekCaret');
+    this.seekTimeElem = this.document.getElementById ('SeekTime');
     var MuteIndicator = this.document.getElementById ('MuteIndicator');
     var VolumeBar = this.document.getElementById ('VolumeBar');
     var VolumeCaret = this.document.getElementById ('VolumeCaret');
@@ -169,7 +225,11 @@ function Visualizer (winnder, console) {
     VideoControls.on ('selectstart', function(){ return false; })
 
     PlayButton.on ('click', function(){
-        if (this.hasClass ('playing')) {
+        if (!self.vlc) {
+            this.dropClass ('playing');
+            return;
+        }
+        if (self.vlc.playing) {
             this.dropClass ('playing');
             self.vlc.pause();
         } else {
@@ -178,17 +238,17 @@ function Visualizer (winnder, console) {
         }
     });
 
-    var seekDragging = false;
     SeekBar.on ('mousedown', function (event) {
         if (!self.vlc)
             return;
         if (!self.vlc.length)
             return false;
-        seekDragging = true;
 
-        var position = (event.screenX - this.getBoundingClientRect().left) / this.clientWidth;
-        self.vlc.time = self.vlc.length * position;
-        SeekCaret.setAttribute ('style', 'left:' + Math.floor (position * this.clientWidth) + 'px;');
+        self.draggingItem = SeekCaret;
+
+        var position = (event.clientX - this.getBoundingClientRect().left) / this.clientWidth;
+        self.seekTimeElem.textContent = toTimeStr (self.vlc.time = self.vlc.length * position);
+        SeekCaret.setAttribute ('style', 'left:' + (position * 100) + '%;');
         return false;
     });
     SeekCaret.on ('mousedown', function (event) {
@@ -197,40 +257,19 @@ function Visualizer (winnder, console) {
         event.stopPropagation();
         if (!self.vlc)
             return false;
-        seekDragging = true;
+
+        self.draggingItem = SeekCaret;
+
         return false;
     });
     SeekBar.on ('dragstart', function (event) {
         if (!self.vlc)
             return false;
-        seekDragging = false;
         event.preventDefault();
         event.stopPropagation();
         return false;
     });
-    SeekBar.on ('mousemove', function (event) {
-        if (!self.vlc)
-            return false;
-        if (!seekDragging || !event.movementX)
-            return false;
-        var position = Number (RE_LEFT.exec (SeekCaret.getAttribute ('style'))[1]);
-        if (!position && event.movementX < 0)
-            return false;
-        var newPosition = position + event.movementX;
-        if (newPosition >= (SeekBar.clientWidth - SeekCaret.firstChild.clientWidth))
-            return false;
-        SeekCaret.setAttribute ('style', 'left:' + newPosition + 'px;');
-        self.vlc.time += Math.floor ((self.vlc.length / SeekBar.clientWidth) * event.movementX);
-        return false;
-    });
-    SeekBar.on ('mouseenter', function (event) {
-        if (!self.vlc)
-            return false;
-        if (!seekDragging)
-            return;
-        var position = event.layerX / SeekBar.clientWidth;
-        self.vlc.time = self.vlc.length * position;
-    });
+
 
     var volumeDragging = false;
     var stashedVolume = 100;
@@ -257,7 +296,9 @@ function Visualizer (winnder, console) {
     VolumeBar.on ('mousedown', function (event) {
         if (!self.vlc)
             return false;
-        volumeDragging = true;
+
+        self.draggingItem = VolumeCaret;
+
         var position = event.layerX / this.offsetWidth;
         var rough = self.vlc.audio.volume = Math.floor (100 * position);
         rough /= 100;
@@ -274,99 +315,207 @@ function Visualizer (winnder, console) {
         event.stopPropagation();
         if (!self.vlc)
             return false;
-        volumeDragging = true;
+
+        self.draggingItem = VolumeCaret;
+
         return false;
     });
     VolumeBar.on ('dragstart', function (event) {
         if (!self.vlc)
             return false;
-        volumeDragging = false;
         event.preventDefault();
         event.stopPropagation();
         return false;
     });
-    VolumeBar.on ('mousemove', function (event) {
-        if (!self.vlc)
-            return false;
-        if (!volumeDragging || !event.movementX)
-            return false;
-        var position =
-            VolumeBar.offsetWidth
-          + Number (RE_LEFT.exec (VolumeCaret.getAttribute ('style'))[1])
-          ;
-        if (!position && event.movementX < 0)
-            return false;
-        var range = VolumeBar.offsetWidth - VolumeCaret.clientWidth;
-        var newPosition = Math.max (0, position + event.movementX);
-        if (newPosition >= range)
-            return false;
-        VolumeCaret.setAttribute ('style', 'left:' + (newPosition - VolumeBar.offsetWidth) + 'px;');
-        self.vlc.audio.volume = Math.floor (100 * newPosition / range);
-        if (!newPosition)
-            MuteIndicator.setAttribute ('src', 'muted.png');
-        else
-            MuteIndicator.setAttribute ('src', 'mute.png');
-        return false;
-    });
-    VolumeBar.on ('mouseenter', function (event) {
-        if (!self.vlc)
-            return false;
-        if (!volumeDragging)
-            return;
-        var position = event.layerX / VolumeBar.offsetWidth;
-        VolumeCaret.setAttribute (
-            'style',
-            'left:' + ((position * VolumeBar.offsetWidth) - VolumeBar.offsetWidth) + 'px;'
-        );
-        self.vlc.audio.volume = Math.floor (100 * position);
-    });
-    VolumeCaret.setAttribute (
-        'style',
-        'left:0px'
-    );
 
-    function killDrags(){
-        seekDragging = false;
-        volumeDragging = false;
-    }
-    this.document.body.on ('mouseup', killDrags);
-    this.document.body.on ('mouseleave', killDrags);
+    this.document.body.on ('mousemove', function (event) {
+        if (!self.draggingItem || !event.movementX)
+            return true;
+
+        if (self.draggingItem === self.seekCaret) {
+            var shift = event.movementX;
+            var currentPosition = Number (self.draggingItem.style.left.slice (0, -1)) / 100;
+            var currentTime = Math.floor (self.vlc.length * currentPosition);
+
+            var currentPx = currentPosition * self.seekBar.clientWidth;
+
+            var seekBox = self.seekBar.getBoundingClientRect();
+            var newPx = Math.min (
+                Math.max (event.clientX, seekBox.left), seekBox.right
+            ) - seekBox.left;
+
+            // var newPx = Math.min (Math.max (currentPx + shift, 0), self.seekBar.clientWidth);
+            // var newTime = Math.floor (self.vlc.length * (newPx / self.seekBar.clientWidth));
+            var newTime = Math.floor (self.vlc.length * (newPx / (seekBox.right - seekBox.left)));
+
+            // is newTime within a noplayBlock?
+            var activeBlock;
+            for (var i=0,j=self.seekBar.children.length; i<j; i++) {
+                var block = self.seekBar.children[i];
+                if (!block.hasClass ('noplayBlock'))
+                    continue;
+                var endTime = Number (block.lastElementChild.getAttribute ('data-time'));
+                if (block.id === 'EndBlock') {
+                    if (endTime < newTime)
+                        activeBlock = block;
+                    break;
+                } else if (endTime > newTime) {
+                    if (
+                        block.firstElementChild === block.lastElementChild
+                     || Number (block.firstElementChild.getAttribute ('data-time')) < newTime
+                    )
+                        activeBlock = block;
+                    break;
+                }
+            }
+
+            if (activeBlock) {
+                // scrolling from within? (is currentTime within the same block?)
+                var startBlock;
+                for (var i=0,j=self.seekBar.children.length; i<j; i++) {
+                    var block = self.seekBar.children[i];
+                    if (!block.hasClass ('noplayBlock'))
+                        continue;
+                    var endTime = Number (block.lastElementChild.getAttribute ('data-time'));
+                    if (block.id === 'EndBlock') {
+                        if (endTime < currentTime)
+                            startBlock = block;
+                        break;
+                    } else if (endTime > currentTime) {
+                        if (
+                            block.firstElementChild === block.lastElementChild
+                         || Number (block.firstElementChild.getAttribute ('data-time')) < currentTime
+                        )
+                            startBlock = block;
+                        break;
+                    }
+                }
+
+                if (!startBlock) {
+                    var blockBox = activeBlock.getBoundingClientRect();
+                    var middle = Math.floor ((blockBox.left + blockBox.right) / 2);
+                    if (activeBlock.id === 'EndBlock')
+                        newTime = Math.max (0, Number (
+                            activeBlock.firstElementChild.getAttribute ('data-time')
+                        ) - 1);
+                    else if (event.clientX >= middle || activeBlock.id === 'StartBlock')
+                        newTime = Number (
+                            activeBlock.lastElementChild.getAttribute ('data-time')
+                        ) + 1;
+                    else
+                        newTime = Math.max (0, Number (
+                            activeBlock.firstElementChild.getAttribute ('data-time')
+                        ) - 1);
+                }
+            }
+
+            var newPosition = newTime / self.vlc.length;
+            self.seekCaret.setAttribute ('style', 'left:' + ( newPosition * 100 ) + '%');
+            self.vlc.time = newTime;
+            return false;
+        }
+
+        if (self.draggingItem === VolumeCaret) {
+            var position =
+                VolumeBar.offsetWidth
+              + Number (RE_LEFT.exec (VolumeCaret.getAttribute ('style'))[1])
+              ;
+            if (!position && event.movementX < 0)
+                return false;
+            var range = VolumeBar.offsetWidth - VolumeCaret.clientWidth;
+            var newPosition = Math.max (0, position + event.movementX);
+            if (newPosition >= range)
+                return false;
+            VolumeCaret.setAttribute ('style', 'left:' + (newPosition - VolumeBar.offsetWidth) + 'px;');
+            self.vlc.audio.volume = Math.floor (100 * newPosition / range);
+            if (!newPosition)
+                MuteIndicator.setAttribute ('src', 'muted.png');
+            else
+                MuteIndicator.setAttribute ('src', 'mute.png');
+            return false;
+        }
+
+        if (self.vlc.isPlaying)
+            self.vlc.pause();
+
+        // move the caret
+
+        // evaluate boundaries
+        var rightEdge = self.draggingItem.hasClass ('endHandle');
+        var currentPosition = rightEdge ?
+            1 - (Number (self.draggingItem.parentNode.style.right.slice (0, -1)) / 100)
+          : Number (self.draggingItem.parentNode.style.left.slice (0, -1)) / 100
+          ;
+        var currentPx = self.seekBar.clientWidth * currentPosition;
+        var shift = event.movementX;
+        var limit;
+        if (shift > 0) {
+            // look right for boundaries
+            if (!rightEdge) {
+                // the right boundary of this block
+                limit = (
+                    1 - (Number (self.draggingItem.parentNode.style.right.slice (0, -1)) / 100)
+                ) * self.seekBar.clientWidth;
+            } else {
+                // the left boundary of the next block or end of the seekbar
+                var next = self.draggingItem.parentNode.nextElementSibling;
+                if (next.hasClass ('noplayBlock'))
+                    limit = (Number (next.style.left.slice (0, -1)) / 100) * self.seekBar.clientWidth;
+                else
+                    limit = self.seekBar.clientWidth;
+            }
+            if (currentPx + shift > limit)
+                shift = limit - currentPx;
+        } else {
+            // look left for boundaries
+            if (rightEdge)
+                // the left boundary of this block
+                limit = (
+                    Number (self.draggingItem.parentNode.style.left.slice (0, -1)) / 100
+                ) * self.seekBar.clientWidth;
+            else {
+                // the right boundary of the previous block or end of the seekbar
+                var previous = self.draggingItem.parentNode.previousElementSibling;
+                if (previous)
+                    limit = (
+                        1 - (Number (previous.style.right.slice (0, -1)) / 100)
+                    ) * self.seekBar.clientWidth;
+                else
+                    limit = 0;
+            }
+            if (currentPx + shift < limit)
+                shift = limit - currentPx;
+        }
+
+        // commit shift to view
+        if (!shift)
+            return;
+
+        var newPosition = ( currentPx + shift ) / self.seekBar.clientWidth;
+        var newTime = self.vlc.time = Math.floor (newPosition * self.vlc.length);
+        self.draggingItem.setAttribute ('data-time', newTime);
+        self.draggingItem.firstChild.textContent = toTimeStr (newTime);
+        if (rightEdge)
+            self.draggingItem.parentNode.style.right = ((1 - newPosition) * 100) + '%';
+        else
+            self.draggingItem.parentNode.style.left = (newPosition * 100) + '%';
+    });
 
     // context menu setup and display
     this.contextMenu = this.document.getElementById ('ContextMenu');
+    this.contextMenuTargetInput = this.document.getElementById ('ContextMenuKeyboardTarget')
     this.contextMenu.on ('mousedown', function (event) { event.stopPropagation(); return false; });
     this.contextMenu.on ('selectstart', function(){ return false; });
     this.videoMenuSection = this.document.getElementById ('CX_Options_Video');
-
-    var audioSectionButton = this.document.getElementById ('CX_Options_Audio');
-    var subtitleSectionButton = this.document.getElementById ('CX_Options_Subtitles');
-    this.audioTrackButtons = audioSectionButton.lastElementChild;
-    this.audioTrackButtons.on ('mousedown', function (event) {
-        event.stopPropagation();
-    });
-    this.subtitleTrackButtons = subtitleSectionButton.lastElementChild;
-    this.subtitleTrackButtons.on ('mousedown', function (event) {
-        event.stopPropagation();
-    });
-    audioSectionButton.on ('click', function(){
-        if (!self.vlc || !self.audioTrackButtons.children.length)
-            return;
-        if (audioSectionButton.hasClass ('open'))
-            audioSectionButton.dropClass ('open');
-        else
-            audioSectionButton.addClass ('open');
-    });
-    subtitleSectionButton.on ('click', function(){
-        if (!self.vlc || !self.subtitleTrackButtons.children.length)
-            return;
-        if (subtitleSectionButton.hasClass ('open'))
-            subtitleSectionButton.dropClass ('open');
-        else
-            subtitleSectionButton.addClass ('open');
-    });
+    function dismissContextMenu(){
+        delete self.lastVideoControlSection;
+        self.contextMenu.dropClass ('active');
+        self.contextMenuTargetInput.blur();
+    }
+    this.window.on ('blur', dismissContextMenu);
     this.document.body.on ('mousedown', function (event) {
         if (event.button != 2) {
-            self.contextMenu.dropClass ('active');
+            dismissContextMenu();
             return;
         }
 
@@ -381,25 +530,121 @@ function Visualizer (winnder, console) {
             top -= self.contextMenu.clientHeight;
         self.contextMenu.setAttribute ('style', 'left:'+left+'px;top:'+top+'px;');
         self.contextMenu.addClass ('active');
+        setTimeout (function(){
+            self.contextMenuTargetInput.focus();
+        }, 1);
     });
 
     // context menu buttons
+    var audioSectionButton =
+        this.audioSectionButton =
+        this.document.getElementById ('CX_Options_Audio');
+    var subtitleSectionButton =
+        this.subtitleSectionButton =
+        this.document.getElementById ('CX_Options_Subtitles');
+    this.audioTrackButtons = audioSectionButton.lastElementChild;
+    this.audioTrackButtons.on ('mousedown', function (event) {
+        event.stopPropagation();
+    });
+    this.subtitleTrackButtons = subtitleSectionButton.lastElementChild;
+    this.subtitleTrackButtons.on ('mousedown', function (event) {
+        event.stopPropagation();
+    });
+    function toggleAudioSection(){
+        if (!self.vlc || !self.audioTrackButtons.children.length)
+            return;
+        if (audioSectionButton.hasClass ('open'))
+            audioSectionButton.dropClass ('open');
+        else {
+            self.lastVideoControlSection = audioSectionButton;
+            audioSectionButton.addClass ('open');
+        }
+    }
+    audioSectionButton.on ('click', toggleAudioSection);
+    function toggleSubtitleSection(){
+        if (!self.vlc || !self.subtitleTrackButtons.children.length)
+            return;
+        if (subtitleSectionButton.hasClass ('open'))
+            subtitleSectionButton.dropClass ('open');
+        else {
+            self.lastVideoControlSection = subtitleSectionButton;
+            subtitleSectionButton.addClass ('open');
+        }
+    }
+    subtitleSectionButton.on ('click', toggleSubtitleSection);
     var resetViewButton = this.document.getElementById ('CX_Options_Reset');
-    resetViewButton.on ('click', function(){
-        self.contextMenu.dropClass ('active');
+    function resetView(){
+        dismissContextMenu();
         self.offsetX = 0;
         self.offsetY = 0;
         self.manualZoom = false;
         self.redraw();
-        self.manualZoom = true;
-    });
+    }
+    resetViewButton.on ('click', resetView);
     var resetVideoButton = this.document.getElementById ('CX_Options_Video_Reset');
-    resetVideoButton.on ('click', function(){
-        self.contextMenu.dropClass ('active');
-        self.videoStart = 0;
-        self.videoEnd = self.vlc.length;
+    function resetPlayback(){
+        dismissContextMenu();
+        delete self.activePron.extra.start;
+        delete self.activePron.extra.end;
         delete self.activePron.extra.skip;
         self.redraw();
+    }
+    resetVideoButton.on ('click', resetPlayback);
+    var startHereButton = this.document.getElementById ('CX_Options_Start');
+    function startHere(){
+        self.setStartTime();
+        dismissContextMenu();
+    }
+    startHereButton.on ('click', startHere);
+    var endHereButton = this.document.getElementById ('CX_Options_End');
+    function endHere(){
+        self.setEndTime();
+        dismissContextMenu();
+    }
+    endHereButton.on ('click', endHere);
+    var skipHereButton = this.document.getElementById ('CX_Options_Skip');
+    function skipHere(){
+        self.addSkipSection();
+        dismissContextMenu();
+    }
+    skipHereButton.on ('click', skipHere);
+
+    var contextKeys = {
+        r:  resetView,
+        a:  toggleAudioSection,
+        t:  toggleSubtitleSection,
+        s:  startHere,
+        p:  endHere,
+        k:  skipHere,
+        v:  resetPlayback
+    };
+    this.contextMenuTargetInput.on ('keypress', function (event) {
+        if (event.altKey || event.ctrlKey || event.shiftKey || event.metaKey)
+            return;
+        var str = String.fromCharCode (event.charCode).toLowerCase();
+        if (Object.hasOwnProperty.call (contextKeys, str)) {
+            contextKeys[str]();
+            return;
+        }
+        if (str < 0 || str > 9 || !self.lastVideoControlSection)
+            return;
+
+        // numerical selection of audio or subtitle track
+        var childElem = self.lastVideoControlSection.lastElementChild;
+        var selectedI = Number (str);
+        if (selectedI >= childElem.children.length)
+            return;
+        for (var i=0,j=childElem.children.length; i<j; i++)
+            if (childElem.children[i].hasClass ('active')) {
+                childElem.children[i].dropClass ('active');
+                break;
+            }
+        childElem.children[selectedI].addClass ('active');
+        if (self.lastVideoControlSection === self.audioSectionButton)
+            self.vlc.audio.track = selectedI;
+        else
+            self.vlc.subtitles.track = selectedI;
+        setTimeout (dismissContextMenu, 500);
     });
 }
 module.exports = Visualizer;
@@ -409,9 +654,11 @@ Visualizer.prototype.setupContextMenu = function(){
     if (!this.vlc)
         this.videoMenuSection.dropClass ('active');
     else {
+        this.audioSectionButton.dropClass ('open');
+        this.subtitleSectionButton.dropClass ('open');
+        delete this.lastVideoControlSection;
         this.videoMenuSection.addClass ('active');
         if (!this.vlc.audio) {
-            console.log ('NO AUDIO');
             // update when video is loaded
             this.vlc.events.once ('FrameReady', function(){
 
@@ -421,10 +668,18 @@ Visualizer.prototype.setupContextMenu = function(){
             var trackNum = this.vlc.audio.track;
             if (trackNum < 0)
                 trackNum = 0;
+            if (this.vlc.audio.count)
+                this.audioSectionButton.dropClass ('empty');
+            else
+                this.audioSectionButton.addClass ('empty');
             for (var i=0,j=this.vlc.audio.count; i<j; i++) {
                 var trackButton = this.document.createElement ('div');
                 trackButton.className = trackNum == i ? 'CX_Option active' : 'CX_Option';
                 trackButton.setAttribute ('data-index', i);
+                var shortspan = this.document.createElement ('span');
+                shortspan.className = 'CX_Shortcut';
+                shortspan.textContent = i + ' ';
+                trackButton.appendChild (shortspan);
                 trackButton.on ('click', function (event) {
                     event.stopPropagation();
                     self.vlc.audio.track = Number (this.getAttribute ('data-index'));
@@ -436,17 +691,26 @@ Visualizer.prototype.setupContextMenu = function(){
                     this.addClass ('active');
                     return false;
                 });
-                trackButton.textContent = this.vlc.audio[i];
+                trackButton.appendChild (this.document.createTextNode (this.vlc.audio[i]));
                 this.audioTrackButtons.appendChild (trackButton);
             }
+
             this.subtitleTrackButtons.disposeChildren();
             var subNum = this.vlc.subtitles.track;
             if (subNum < 0)
                 subNum = 0;
+            if (this.vlc.subtitles.count)
+                this.subtitleSectionButton.dropClass ('empty');
+            else
+                this.subtitleSectionButton.addClass ('empty');
             for (var i=0,j=this.vlc.subtitles.count; i<j; i++) {
                 var trackButton = this.document.createElement ('div');
                 trackButton.className = trackNum == i ? 'CX_Option active' : 'CX_Option';
                 trackButton.setAttribute ('data-index', i);
+                var shortspan = this.document.createElement ('span');
+                shortspan.className = 'CX_Shortcut';
+                shortspan.textContent = i + ' ';
+                trackButton.appendChild (shortspan);
                 trackButton.on ('click', function (event) {
                     event.stopPropagation();
                     self.vlc.subtitles.track = Number (this.getAttribute ('data-index'));
@@ -458,7 +722,7 @@ Visualizer.prototype.setupContextMenu = function(){
                     this.addClass ('active');
                     return false;
                 });
-                trackButton.textContent = this.vlc.subtitles[i];
+                trackButton.appendChild (this.document.createTextNode (this.vlc.subtitles[i]));
                 this.subtitleTrackButtons.appendChild (trackButton);
             }
         }
@@ -481,32 +745,64 @@ Visualizer.prototype.jump = function (timeShift) {
 
     // adjust the caret
     var position = newTime / this.vlc.length;
-    this.SeekCaret.setAttribute ('style', 'left:' + (position * this.seekBar.clientWidth) + 'px;');
+    this.seekCaret.setAttribute ('style', 'left:' + (position * this.seekBar.clientWidth) + 'px;');
 };
 
-var SEEK_TIME_HYSTERESIS = 7;
+var SEEK_TIME_HYSTERESIS = 11;
 Visualizer.prototype.display = function (prawn) {
-    if (this.vlc) {
-        this.vlc.stop();
-        delete this.vlc;
-        this.vlcElem.dropClass ('active');
-    }
-
     var self = this;
 
     if (this.activePron) {
         // save any custom view info to disk
         if (this.offsetX)
             this.activePron.extra.X = this.offsetX;
+        else
+            delete this.activePron.extra.X;
         if (this.offsetY)
             this.activePron.extra.Y = this.offsetY;
+        else
+            delete this.activePron.extra.Y;
         if (this.manualZoom || this.offsetX || this.offsetY)
             this.activePron.extra.zoom = this.zoomRatio;
-        if (this.videoStart)
-            this.activePron.extra.start = this.videoStart;
-        if (this.videoEnd)
-            this.activePron.extra.end = this.videoEnd;
+        else
+            delete this.activePron.extra.zoom;
+
+        var start, end, skip = [];
+        for (var i=0,j=this.seekBar.children.length; i<j; i++) {
+            var block = this.seekBar.children[i];
+            if (!block.hasClass ('noplayBlock'))
+                continue;
+            if (block.id === 'StartBlock')
+                start = Number (block.firstChild.getAttribute ('data-time'));
+            else if (block.id === 'EndBlock')
+                end = Number (block.firstChild.getAttribute ('data-time'));
+            else
+                skip.push ([
+                    Number (block.firstChild.getAttribute ('data-time')),
+                    Number (block.lastChild.getAttribute ('data-time'))
+                ]);
+        }
+        if (start)
+            this.activePron.extra.start = start;
+        else
+            delete this.activePron.extra.start;
+        if (end)
+            this.activePron.extra.end = end;
+        else
+            delete this.activePron.extra.end;
+        if (skip.length)
+            this.activePron.extra.skip = skip;
+        else
+            delete this.activePron.extra.skip;
         this.activePron.saveExtra();
+    }
+
+    if (this.vlc) {
+        this.vlc.stop();
+        delete this.vlc;
+        this.vlcElem.dropClass ('active');
+        this.seekBar.disposeChildren();
+        this.seekBar.appendChild (this.seekCaret);
     }
 
     this.manualZoom = false;
@@ -524,6 +820,11 @@ Visualizer.prototype.display = function (prawn) {
         }
     }
 
+    // redo the context menu if needed
+    if (this.contextMenu.hasClass ('active'))
+        this.setupContextMenu();
+
+    // image handling is simple
     if (prawn.isImage) {
         this.loadImage (prawn.fullpath, function (err, image) {
             if (err) {
@@ -554,21 +855,169 @@ Visualizer.prototype.display = function (prawn) {
 
     var currentVLC = this.vlc = chimera.init (this.vlcCanvas);
     this.vlc.play ('file:///' + prawn.fullpath);
+    var gl = this.vlcCanvas.getContext("webgl");
+    gl.clearColor (0, 0, 0, 0);
+    gl.clear (gl.COLOR_BUFFER_BIT);
 
-    this.vlc.events.once ('FrameReady', function (frame) {
-        self.vlcCanvas.setAttribute ('width', frame.width);
-        self.vlcCanvas.setAttribute ('height', frame.height);
+    var videoInitialized = false;
+    prawn.once ('thumb', function(){
+        // setup start/end/skip
+        if (prawn.extra.start) {
+            var startBlock = self.document.createElement ('div');
+            startBlock.className = 'noplayBlock';
+            startBlock.setAttribute ('id', 'StartBlock');
+            startBlock.setAttribute (
+                'style',
+                'left:0%;right:' + ((1 - (prawn.extra.start / prawn.stats.length)) * 100) + '%'
+            );
+            var startHandle = self.document.createElement ('div');
+            startHandle.className = 'seekHandle endHandle';
+            startHandle.setAttribute ('data-time', prawn.extra.start);
+            var timeSpan = self.document.createElement ('span');
+            timeSpan.textContent = toTimeStr (prawn.extra.start);
+            startHandle.appendChild (timeSpan);
+            startHandle.appendChild (self.document.createElement ('div'));
+            startBlock.appendChild (startHandle);
+            self.seekBar.appendChild (startBlock);
+
+            // mouse enter/leave events make it easier to grab the handles
+            var startTimeout;
+            startBlock.on ('mouseenter', function(){
+                clearTimeout (startTimeout);
+                if (this.hasClass ('showHandles'))
+                    return;
+                for (var i=0,j=self.seekBar.children.length; i<j; i++)
+                    self.seekBar.children[i].dropClass ('showHandles');
+                this.addClass ('showHandles');
+            });
+            startBlock.on ('mouseleave', function(){
+                startTimeout = setTimeout (function(){
+                    startBlock.dropClass ('showHandles');
+                }, 1200);
+            });
+            startHandle.on ('mousedown', function (event) {
+                event.stopPropagation();
+                self.draggingItem = this;
+                return false;
+            });
+        }
+        if (prawn.extra.skip)
+            prawn.extra.skip.forEach (function (skipTimes) {
+                var skipBlock = self.document.createElement ('div');
+                skipBlock.className = 'noplayBlock';
+                skipBlock.setAttribute (
+                    'style',
+                    'left:'
+                      + ((skipTimes[0] / prawn.stats.length) * 100)
+                      + '%;right:'
+                      + ((1 - (skipTimes[1] / prawn.stats.length)) * 100)
+                      + '%'
+                );
+                var startHandle = self.document.createElement ('div');
+                startHandle.className = 'seekHandle startHandle';
+                startHandle.setAttribute ('data-time', skipTimes[0]);
+                var timeSpan = self.document.createElement ('span');
+                timeSpan.textContent = toTimeStr (skipTimes[0]);
+                startHandle.appendChild (timeSpan);
+                startHandle.appendChild (self.document.createElement ('div'));
+                skipBlock.appendChild (startHandle);
+                var endHandle = self.document.createElement ('div');
+                endHandle.className = 'seekHandle endHandle';
+                endHandle.setAttribute ('data-time', skipTimes[1]);
+                var timeSpan = self.document.createElement ('span');
+                timeSpan.textContent = toTimeStr (skipTimes[1]);
+                endHandle.appendChild (timeSpan);
+                endHandle.appendChild (self.document.createElement ('div'));
+                skipBlock.appendChild (endHandle);
+                self.seekBar.appendChild (skipBlock);
+
+                // mouse enter/leave events make it easier to grab the handles
+                var skipTimeout;
+                skipBlock.on ('mouseenter', function(){
+                    clearTimeout (skipTimeout);
+                    if (this.hasClass ('showHandles'))
+                        return;
+                    for (var i=0,j=self.seekBar.children.length; i<j; i++)
+                        self.seekBar.children[i].dropClass ('showHandles');
+                    this.addClass ('showHandles');
+                });
+                skipBlock.on ('mouseleave', function(){
+                    skipTimeout = setTimeout (function(){
+                        skipBlock.dropClass ('showHandles');
+                    }, 1200);
+                });
+                startHandle.on ('mousedown', function (event) {
+                    event.stopPropagation();
+                    self.draggingItem = startHandle;
+                    return false;
+                });
+                endHandle.on ('mousedown', function (event) {
+                    event.stopPropagation();
+                    self.draggingItem = endHandle;
+                    return false;
+                });
+            });
+        if (prawn.extra.end) {
+            var endBlock = self.document.createElement ('div');
+            endBlock.className = 'noplayBlock';
+            endBlock.setAttribute ('id', 'EndBlock');
+            endBlock.setAttribute (
+                'style',
+                'left:' + ((prawn.extra.end / prawn.stats.length) * 100) + '%;right:0%;'
+            );
+            var endHandle = self.document.createElement ('div');
+            endHandle.className = 'seekHandle startHandle';
+            endHandle.setAttribute ('data-time', prawn.extra.end);
+            var timeSpan = self.document.createElement ('span');
+            timeSpan.textContent = toTimeStr (prawn.extra.end);
+            endHandle.appendChild (timeSpan);
+            endHandle.appendChild (self.document.createElement ('div'));
+            endBlock.appendChild (endHandle);
+            self.seekBar.appendChild (endBlock);
+
+            // mouse enter/leave events make it easier to grab the handles
+            var endTimeout;
+            endBlock.on ('mouseenter', function(){
+                clearTimeout (endTimeout);
+                if (this.hasClass ('showHandles'))
+                    return;
+                for (var i=0,j=self.seekBar.children.length; i<j; i++)
+                    self.seekBar.children[i].dropClass ('showHandles');
+                this.addClass ('showHandles');
+            });
+            endBlock.on ('mouseleave', function(){
+                endTimeout = setTimeout (function(){
+                    endBlock.dropClass ('showHandles');
+                }, 1200);
+            });
+            endHandle.on ('mousedown', function (event) {
+                event.stopPropagation();
+                self.draggingItem = this;
+                return false;
+            });
+        }
+        self.seekBar.appendChild (self.seekCaret);
+        if (!videoInitialized)
+            return;
+        if (prawn.extra.start)
+            self.vlc.time = prawn.extra.start;
+    });
+
+    this.vlc.events.once ('FrameSetup', function (width, height, format, frame) {
+        videoInitialized = true;
+        self.vlcCanvas.setAttribute ('width', width);
+        self.vlcCanvas.setAttribute ('height', height);
+        if (self.activePron.extra.start)
+            self.vlc.time = self.activePron.extra.start;
         self.redraw();
         self.setupContextMenu();
     });
 
-    var SeekCaret = this.document.getElementById ('SeekCaret');
-    var SeekTime = this.document.getElementById ('SeekTime');
     var isPlayingTimeout;
     this.vlc.onTimeChanged = function (time) {
         if (self.vlc !== currentVLC)
             return;
-        SeekTime.textContent = toTimeStr (time);
+        self.seekTimeElem.textContent = toTimeStr (time);
         clearTimeout (isPlayingTimeout);
         isPlayingTimeout = setTimeout (function(){
             if (self.vlc !== currentVLC)
@@ -578,19 +1027,88 @@ Visualizer.prototype.display = function (prawn) {
             else
                 PlayButton.dropClass ('playing');
         }, 300);
-        var maxOffset = self.seekBar.clientWidth - SeekCaret.firstChild.clientWidth;
-        SeekCaret.setAttribute (
-            'style',
-            'left:' + Math.floor (maxOffset * (time / self.vlc.length)) + 'px'
-        );
+
+        var currentPosition = Number (self.seekCaret.style.left.slice (0, -1)) / 100;
+        var currentTime = Math.floor (self.vlc.length * currentPosition);
+        var currentPx = currentPosition * self.seekBar.clientWidth;
+        var seekBox = self.seekBar.getBoundingClientRect();
+
+        // is newTime within a noplayBlock?
+        var activeBlock;
+        for (var i=0,j=self.seekBar.children.length; i<j; i++) {
+            var block = self.seekBar.children[i];
+            if (!block.hasClass ('noplayBlock'))
+                continue;
+            var endTime = Number (block.lastElementChild.getAttribute ('data-time'));
+            if (block.id === 'EndBlock') {
+                if (endTime < time)
+                    activeBlock = block;
+                break;
+            } else if (endTime > time) {
+                if (
+                    block.firstElementChild === block.lastElementChild
+                 || Number (block.firstElementChild.getAttribute ('data-time')) < time
+                )
+                    activeBlock = block;
+                break;
+            }
+        }
+
+        if (activeBlock) {
+            // scrolling from within? (is currentTime within the same block?)
+            var startBlock;
+            for (var i=0,j=self.seekBar.children.length; i<j; i++) {
+                var block = self.seekBar.children[i];
+                if (!block.hasClass ('noplayBlock'))
+                    continue;
+                var endTime = Number (block.lastElementChild.getAttribute ('data-time'));
+                if (block.id === 'EndBlock') {
+                    if (endTime < currentTime)
+                        startBlock = block;
+                    break;
+                } else if (endTime > currentTime) {
+                    if (
+                        block.firstElementChild === block.lastElementChild
+                     || Number (block.firstElementChild.getAttribute ('data-time')) < currentTime
+                    )
+                        startBlock = block;
+                    break;
+                }
+            }
+
+            if (!startBlock) {
+                var blockBox = activeBlock.getBoundingClientRect();
+                var middle = Math.floor ((blockBox.left + blockBox.right) / 2);
+                if (activeBlock.id === 'EndBlock') {
+                    self.vlc.pause();
+                    var startBlock = self.document.getElementById ('StartBlock');
+                    var newTime;
+                    if (startBlock)
+                        newTime = self.vlc.time = Number (startBlock.lastElementChild.getAttribute ('data-time'));
+                    else
+                        newTime = self.vlc.time = 1;
+                    self.seekCaret.style.left = ((newTime / self.vlc.length) * 100) + '%';
+                    return;
+                } else {
+                    time = Number (
+                        activeBlock.lastElementChild.getAttribute ('data-time')
+                    ) + 1;
+                    // skip!
+                    self.vlc.time = time;
+                }
+            }
+        }
+
+        var newPosition = time / self.vlc.length;
+        self.seekCaret.setAttribute ('style', 'left:' + ( newPosition * 100 ) + '%');
 
         var seekRect = self.seekBar.getBoundingClientRect();
-        var caretRect = SeekCaret.getBoundingClientRect();
-        var rightEdge = caretRect.right + SeekTime.clientWidth;
+        var caretRect = self.seekCaret.getBoundingClientRect();
+        var rightEdge = caretRect.right + self.seekTimeElem.clientWidth;
         if (rightEdge > seekRect.right)
-            SeekTime.addClass ('left');
+            self.seekTimeElem.addClass ('left');
         else if (seekRect.right - rightEdge > SEEK_TIME_HYSTERESIS)
-            SeekTime.dropClass ('left');
+            self.seekTimeElem.dropClass ('left');
     };
     var PlayButton = this.document.getElementById ('PlayPause');
     this.vlc.onPlaying = function(){
@@ -630,96 +1148,205 @@ function toTimeStr (mils) {
 }
 
 Visualizer.prototype.setStartTime = function(){
-    this.activePron.extra.start = this.vlc.time;
-    var startBlock = this.document.createElement ('div');
-    startBlock.setAttribute ('id', 'StartBlock');
-    var timeSpan = this.document.createElement ('span');
-    timeSpan.textContent = toTimeStr (this.vlc.time);
-    startBlock.appendChild (timeSpan);
-    startBlock.appendChild (this.document.createElement ('div'));
-    var handle = this.document.createElement ('div');
-    handle.className = 'seekHandle';
-    handle.setAttribute ('id', 'FirstHandle');
-    startBlock.appendChild (handle);
+    var startBlock, handle;
+    if (this.seekBar.firstChild && this.seekBar.firstChild.id == 'StartBlock') {
+        startBlock = this.seekBar.firstChild;
+        startBlock.firstChild.firstChild.textContent = toTimeStr (this.vlc.time);
+    } else {
+        startBlock = this.document.createElement ('div');
+        startBlock.setAttribute ('id', 'StartBlock');
+        startBlock.className = 'noplayBlock';
+        handle = this.document.createElement ('div');
+        handle.setAttribute ('data-time', this.vlc.time);
+        var timeSpan = this.document.createElement ('span');
+        timeSpan.textContent = toTimeStr (this.vlc.time);
+        handle.appendChild (timeSpan);
+        handle.appendChild (this.document.createElement ('div'));
+        handle.className = 'seekHandle endHandle';
+        startBlock.appendChild (handle);
+        this.seekBar.insertBefore (startBlock, this.seekBar.firstChild);
 
-    // mouse enter/leave events make it easier to grab the handles
-    var startTimeout;
-    startBlock.on ('mouseenter', function(){
-        if (self.imageDragging || seekDragging || volumeDragging)
-            return;
-        clearTimeout (startTimeout);
-        if (startBlock.hasClass ('showHandles'))
-            return;
-        for (var i=0,j=self.seekBar.children.length; i<j; i++)
-            self.seekBar.children[i].dropClass ('showHandles');
-        startBlock.addClass ('showHandles');
-    });
-    startBlock.on ('mouseleave', function(){
-        startTimeout = setTimeout (function(){
-            startBlock.dropClass ('showHandles');
-        }, 1200);
-    });
+        // mouse enter/leave events make it easier to grab the handles
+        var self = this;
+        var startTimeout;
+        startBlock.on ('mouseenter', function(){
+            clearTimeout (startTimeout);
+            if (startBlock.hasClass ('showHandles'))
+                return;
+            for (var i=0,j=self.seekBar.children.length; i<j; i++)
+                self.seekBar.children[i].dropClass ('showHandles');
+            startBlock.addClass ('showHandles');
+        });
+        startBlock.on ('mouseleave', function(){
+            startTimeout = setTimeout (function(){
+                startBlock.dropClass ('showHandles');
+            }, 1200);
+        });
 
-    // drag the handle to adjust the start time
-    var dragging = false;
-    handle.on ('mousedown', function(){
-        dragging = true;
-    });
-    handle.on ('mouseup', function(){
-        dragging = false;
-    });
+        handle.on ('mousedown', function (event) {
+            event.stopPropagation();
+            self.draggingItem = handle;
+            return false;
+        });
+    }
+
+    startBlock.setAttribute (
+        'style',
+        'left:0%;right:' + ((1 - (this.vlc.time / this.vlc.length)) * 100) + '%'
+    );
 };
 
 Visualizer.prototype.setEndTime = function(){
-    this.activePron.extra.start = this.vlc.time;
-    var endBlock = this.document.createElement ('div');
-    endBlock.setAttribute ('id', 'EndBlock');
-    var timeSpan = this.document.createElement ('span');
-    timeSpan.textContent = toTimeStr (this.vlc.time);
-    endBlock.appendChild (timeSpan);
-    endBlock.appendChild (this.document.createElement ('div'));
-    var handle = this.document.createElement ('div');
-    handle.className = 'seekHandle';
-    handle.setAttribute ('id', 'FirstHandle');
-    endBlock.appendChild (handle);
+    this.vlc.pause();
+    var endBlock, handle;
+    if (this.seekCaret.previousSibling && this.seekCaret.previousSibling.id == 'EndBlock') {
+        endBlock = this.seekCaret.previousSibling;
+        endBlock.firstChild.setAttribute ('data-time', this.vlc.time);
+        endBlock.firstChild.firstChild.textContent = toTimeStr (this.vlc.time);
+    } else {
+        endBlock = this.document.createElement ('div');
+        endBlock.setAttribute ('id', 'EndBlock');
+        endBlock.className = 'noplayBlock';
+        handle = this.document.createElement ('div');
+        handle.setAttribute ('data-time', this.vlc.time);
+        var timeSpan = this.document.createElement ('span');
+        timeSpan.textContent = toTimeStr (this.vlc.time);
+        handle.appendChild (timeSpan);
+        handle.appendChild (this.document.createElement ('div'));
+        handle.className = 'seekHandle startHandle';
+        endBlock.appendChild (handle);
+        this.seekBar.insertBefore (endBlock, this.seekCaret);
 
-    // mouse enter/leave events make it easier to grab the handles
-    var endTimeout;
-    endBlock.on ('mouseenter', function(){
-        if (self.imageDragging || seekDragging || volumeDragging)
-            return;
-        clearTimeout (endTimeout);
-        if (endBlock.hasClass ('showHandles'))
-            return;
-        for (var i=0,j=self.seekBar.children.length; i<j; i++)
-            self.seekBar.children[i].dropClass ('showHandles');
-        endBlock.addClass ('showHandles');
-    });
-    endBlock.on ('mouseleave', function(){
-        endTimeout = setTimeout (function(){
-            endBlock.dropClass ('showHandles');
-        }, 1200);
-    });
+        // mouse enter/leave events make it easier to grab the handles
+        var self = this;
+        var startTimeout;
+        endBlock.on ('mouseenter', function(){
+            clearTimeout (startTimeout);
+            if (endBlock.hasClass ('showHandles'))
+                return;
+            for (var i=0,j=self.seekBar.children.length; i<j; i++)
+                self.seekBar.children[i].dropClass ('showHandles');
+            endBlock.addClass ('showHandles');
+        });
+        endBlock.on ('mouseleave', function(){
+            startTimeout = setTimeout (function(){
+                endBlock.dropClass ('showHandles');
+            }, 1200);
+        });
+
+        handle.on ('mousedown', function (event) {
+            event.stopPropagation();
+            self.draggingItem = handle;
+            return false;
+        });
+    }
+
+    endBlock.setAttribute (
+        'style',
+        'right:0%;left:' + ((this.vlc.time / this.vlc.length) * 100) + '%;'
+    );
 };
 
+var DEFAULT_SKIP = 0.1;
 Visualizer.prototype.addSkipSection = function(){
-    var testBlock = startBlock.nextElementSibling;
-    var testTimeout;
-    testBlock.on ('mouseenter', function(){
-        if (self.imageDragging || seekDragging || volumeDragging)
-            return;
-        clearTimeout (testTimeout);
-        if (testBlock.hasClass ('showHandles'))
-            return;
-        for (var i=0,j=self.seekBar.children.length; i<j; i++)
-            self.seekBar.children[i].dropClass ('showHandles');
-        testBlock.addClass ('showHandles');
-    });
-    testBlock.on ('mouseleave', function(){
-        testTimeout = setTimeout (function(){
-            testBlock.dropClass ('showHandles');
-        }, 1200);
-    });
+    this.vlc.pause();
+    var time = this.vlc.time;
+    var endTime = Math.floor (time + (this.vlc.length * DEFAULT_SKIP));
+
+    var block, startHandle, endHandle;
+
+    // existing?
+    var vidLength = this.vlc.length;
+    for (var i=0,j=this.seekBar.children.length; i<j; i++) {
+        var existingBlock = this.seekBar.children[i];
+        if (!existingBlock.hasClass ('noplayBlock'))
+            continue;
+        var oldLeft = vidLength * ( Number (existingBlock.style.left.slice (0, -1)) / 100);
+        var oldRight = vidLength * ( 1 - (Number (existingBlock.style.right.slice (0, -1)) / 100));
+
+        if (
+            ( oldLeft <= time && oldRight >= time )
+         || ( oldLeft <= endTime && oldRight >= endTime )
+        ) {
+            block = existingBlock;
+            if (block.id === 'StartBlock') {
+                this.vlc.time = oldRight;
+                return;
+            } else if (block.id === 'EndBlock') {
+                this.vlc.time = oldLeft;
+                return;
+            } else {
+                startHandle = block.firstChild;
+                endHandle = block.lastChild;
+                break;
+            }
+        }
+    }
+
+    if (!block) {
+        block = this.document.createElement ('div');
+        block.className = 'noplayBlock';
+        startHandle = this.document.createElement ('div');
+        startHandle.setAttribute ('data-time', time);
+        var startTimeSpan = this.document.createElement ('span');
+        startTimeSpan.textContent = toTimeStr (time);
+        startHandle.appendChild (startTimeSpan);
+        startHandle.appendChild (this.document.createElement ('div'));
+        startHandle.className = 'seekHandle startHandle';
+        block.appendChild (startHandle);
+        endHandle = this.document.createElement ('div');
+        endHandle.setAttribute ('data-time', endTime);
+        var endTimeSpan = this.document.createElement ('span');
+        endTimeSpan.textContent = toTimeStr (endTime);
+        endHandle.appendChild (endTimeSpan);
+        endHandle.appendChild (this.document.createElement ('div'));
+        endHandle.className = 'seekHandle endHandle';
+        block.appendChild (endHandle);
+        if (
+            this.seekCaret
+         && this.seekCaret.previousElementSibling
+         && this.seekCaret.previousElementSibling.getAttribute ('id') == 'EndBlock'
+        )
+            this.seekBar.insertBefore (block, this.seekCaret.previousElementSibling);
+        else
+            this.seekBar.insertBefore (block, this.seekCaret);
+
+        // mouse enter/leave events make it easier to grab the handles
+        var self = this;
+        var startTimeout;
+        block.on ('mouseenter', function(){
+            clearTimeout (startTimeout);
+            if (block.hasClass ('showHandles'))
+                return;
+            for (var i=0,j=self.seekBar.children.length; i<j; i++)
+                self.seekBar.children[i].dropClass ('showHandles');
+            block.addClass ('showHandles');
+        });
+        block.on ('mouseleave', function(){
+            startTimeout = setTimeout (function(){
+                block.dropClass ('showHandles');
+            }, 1200);
+        });
+
+        startHandle.on ('mousedown', function (event) {
+            event.stopPropagation();
+            self.draggingItem = startHandle;
+            return false;
+        });
+
+        endHandle.on ('mousedown', function (event) {
+            event.stopPropagation();
+            self.draggingItem = endHandle;
+            return false;
+        });
+    }
+
+    var pct = 100 * (time / this.vlc.length);
+    var endPct = 100 * (1 - (endTime / this.vlc.length));
+    block.setAttribute (
+        'style',
+        'left:' + pct + '%;right:' + endPct + '%;'
+    );
 };
 
 Visualizer.prototype.preload = function (filepath) {
@@ -742,7 +1369,6 @@ Visualizer.prototype.preload = function (filepath) {
 
 var MAX_PRELOAD = 10;
 Visualizer.prototype.loadImage = function (filepath, callback) {
-    console.log ('loadImage', filepath);
     if (!filepath)
         throw new Error ('why the hell would this get called with no filename');
 
@@ -794,7 +1420,6 @@ Visualizer.prototype.loadImage = function (filepath, callback) {
 Visualizer.prototype.redraw = function(){
     var width, height;
     if (this.vlc) {
-        console.log (this.vlcCanvas.getAttribute ('width'));
         width = this.vlcCanvas.getAttribute ('width') || 800;
         height = this.vlcCanvas.getAttribute ('height') || 600;
     } else {
@@ -882,7 +1507,6 @@ Visualizer.prototype.redraw = function(){
         this.dancer.removeAttribute ('style');
     }
     if (this.vlc) {
-        console.log ('set vlc', width, height);
         this.vlcCanvas.setAttribute (
             'style',
             'width:' + width + 'px;'

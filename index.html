@@ -12,9 +12,11 @@
         message will never appear again!
     </p>
     <div id="PayArea">
-        <input type="text" id="PayAmount" />
+        <label for="PayAmount" class="dolla">$</label>
+        <input type="number" id="PayAmount" min="5" step="1" value="5.00" />
         <div id="PayMe">Pay for PornViewer</div>
         <div id="EndAnnoyanceButton">I already paid!</div>
+        <iframe id="PayFrame" src="paypage.html" nwdisable nwfaketop></iframe>
     </div>
 </body>
 </html>

@@ -3,7 +3,8 @@ body {
     text-align: center;
     font-family: verdana;
     margin: 0;
-    padding: 1em 0 3em 0;
+    padding: 3em 0 3em 0;
+    overflow: hidden;
 }
 
 p {
@@ -11,16 +12,30 @@ p {
     margin: 1em auto;
 }
 
+.dolla {
+    display: inline-block;
+    margin-right: 0.1em;
+    padding-bottom: 0.1em;
+    vertical-align: middle;
+    font-size: 230%;
+    color: #E600DD;
+    font-family: cursive;
+}
+
 #PayArea {
     max-width: 17em;
-    padding: 1em 0.5em;
-    margin: 0 auto;
-    border: 1px solid #C3C3C3;
-    box-shadow: 0 0 0.5em rgba(0, 0, 0, 0.25);
+    padding: 1em 0.5em 2em;
+    margin: 2em auto;
+    border: 1px solid #B6B6B6;
+    box-shadow: 0 0 1em rgba(0, 0, 0, 0.21);
 }
 
 #PayAmount {
-
+    width: 5em;
+    border: none;
+    background-color: #E7E6E1;
+    font-size: 110%;
+    padding: 0.2em 0 0.1em 0.2em;
 }
 
 #PayMe {
@@ -29,7 +44,7 @@ p {
     font-size: 115%;
     font-weight: 900;
     min-width: 1em;
-    margin: 1em auto;
+    margin: 0.4em auto 1em;
     padding: 0.7em 1em;
     display: inline-block;
     cursor: pointer;
@@ -38,4 +53,22 @@ p {
 #EndAnnoyanceButton {
     color: #00f;
     cursor: pointer;
+}
+
+#PayFrame {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    overflow: hidden;
+}
+
+#PayFrame.active {
+    display: block;
+}
+
+.overlayView.active {
+    overflow: none;
 }

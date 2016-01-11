@@ -120,6 +120,27 @@ function Controller (winnder, visualizer, console) {
     }};
     this.root.root = root;
 
+    var resizeBar = this.document.getElementById ('ResizeBar');
+    var resizingTree = false;
+    resizeBar.on ('mousedown', function(){
+        console.log ('resizing tree');
+        resizingTree = true;
+        return false;
+    });
+    this.document.body.on ('mousemove', function (event) {
+        console.log ('mousemove');
+        if (!resizingTree)
+            return;
+        self.treeElem.setAttribute (
+            'style',
+            'width:'
+          + Math.max (100, Math.min (event.clientX, self.window.window.innerWidth - 100))
+          + 'px;'
+        );
+    });
+    this.document.body.on ('mouseup', function(){ resizingTree = false; });
+    this.document.body.on ('mouseleave', function(){ resizingTree = false; });
+
     // on windows we need to enumerate the drives
     if (process.platform == 'win32')
         require('child_process').exec (
@@ -289,15 +310,20 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 break;
             }
 
-        self.warrior.redoThumb (self.selectedPath, filepath, oldThumbPath, function (err, thumbPath, padHeight, stats) {
-            if (err) {
-                console.log ('failed to redraw thumbnail for', filepath, err);
-                return;
+        self.warrior.redoThumb (
+            self.selectedPath,
+            filepath,
+            oldThumbPath,
+            function (err, thumbPath, padHeight, stats) {
+                if (err) {
+                    console.log ('failed to redraw thumbnail for', filepath, err);
+                    return;
+                }
+                container.firstChild.dispose();
+                self.setupThumb (container, thumbPath, padHeight, stats);
+                self.sortThumb (container);
             }
-            container.firstChild.dispose();
-            self.setupThumb (container, thumbPath, padHeight, stats);
-            self.sortThumb (container);
-        });
+        );
     });
     this.watcher.on ('remove', function (filepath) {
         // linear scan for filepath and dispose the first matching container
@@ -311,6 +337,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
     this.watcher.on ('error', function (err) {
         console.log ('watcher error', filepath);
     });
+
     // this.watcher.on ('ready', function (err) {
     //     console.log ('watcher ready in', (new Date()).getTime() - start, 'ms');
     // });

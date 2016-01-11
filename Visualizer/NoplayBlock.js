@@ -25,6 +25,7 @@ function NoplayBlock (document, start, end) {
         this.startSpan = document.createElement ('span');
         this.startSpan.textContent = toTimeStr (start);
         startHandle.appendChild (this.startSpan);
+        startHandle.appendChild (document.createElement ('div'));
     } else {
         this.isFirst = true;
         this.elem.setAttribute ('id', 'StartBlock');
@@ -37,6 +38,7 @@ function NoplayBlock (document, start, end) {
         this.endSpan = document.createElement ('span');
         this.endSpan.textContent = toTimeStr (end);
         endHandle.appendChild (this.endSpan);
+        endHandle.appendChild (document.createElement ('div'));
     } else {
         this.isLast = true;
         this.elem.setAttribute ('id', 'EndBlock');

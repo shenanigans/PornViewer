@@ -137,6 +137,9 @@ ThumbWarrior.prototype.processThumb = function (filepath, thumbpath, callback) {
 
                         var width = image.width();
                         var height = image.height();
+                        stats.width = width;
+                        stats.height = height;
+                        stats.pixels = width * height;
 
                         if (width <= THUMB_SIZE && height <= THUMB_SIZE)
                             return callback();
@@ -234,94 +237,106 @@ ThumbWarrior.prototype.processVideoThumb = function (filepath, thumbpath, callba
                     callback (new Error ('failed to render any frames within timeout'));
                 }
                 var cancellationTimeout = setTimeout (cancelCall, VID_THUMB_TIMEOUT);
-                vlc.events.on ('FrameReady', function (frame) {
-                    if (alreadyDone)
-                        return;
-                    if (alreadyDone) {
-                        vlc.stop();
-                        return;
-                    }
-                    if (!didSeek) {
-                        didSeek = true;
-                        targetTime = Math.floor (vlc.time = vlc.length * 0.2);
-                        clearTimeout (cancellationTimeout);
-                        cancellationTimeout = setTimeout (cancelCall, VID_THUMB_TIMEOUT);
-                        return;
-                    }
-                    if (vlc.time < targetTime)
-                        return;
-                    if (!armed) {
-                        armed = vlc.time;
-                        return;
-                    }
-                    // must advance PAST the arming frame
-                    if (vlc.time <= armed)
-                        return;
-                    clearTimeout (cancellationTimeout);
-                    vlc.stop();
-                    alreadyDone = true;
+                async.parallel ([
+                    function (callback) {
+                        vlc.events.once ('LengthChanged', function (length) {
+                            stats.length = length;
+                            callback();
+                        });
+                    },
+                    function (callback) {
+                        vlc.events.on ('FrameReady', function (frame) {
+                            if (alreadyDone) {
+                                vlc.stop();
+                                return;
+                            }
+                            if (!didSeek) {
+                                didSeek = true;
+                                targetTime = Math.floor (vlc.time = vlc.length * 0.2);
+                                clearTimeout (cancellationTimeout);
+                                cancellationTimeout = setTimeout (cancelCall, VID_THUMB_TIMEOUT);
+                                return;
+                            }
+                            if (vlc.time < targetTime)
+                                return;
+                            if (!armed) {
+                                armed = vlc.time;
+                                return;
+                            }
+                            // must advance PAST the arming frame
+                            if (vlc.time <= armed)
+                                return;
+                            clearTimeout (cancellationTimeout);
+                            vlc.stop();
+                            alreadyDone = true;
 
-                    var wideRatio = VID_THUMB_WIDTH / frame.width;
-                    var tallRatio = VID_THUMB_HEIGHT / frame.height;
-                    var context = self.targetCanvas.getContext ('2d');
-                    var newWidth, newHeight;
-                    if (wideRatio < tallRatio) {
-                        newWidth = Math.floor (frame.width * wideRatio);
-                        newHeight = Math.floor (frame.height * wideRatio);
-                    } else {
-                        newWidth = Math.floor (frame.width * tallRatio);
-                        newHeight = Math.floor (frame.height * tallRatio);
+                            stats.width = frame.width;
+                            stats.height = frame.height;
+                            stats.pixels = stats.width * stats.height;
+
+                            var wideRatio = VID_THUMB_WIDTH / frame.width;
+                            var tallRatio = VID_THUMB_HEIGHT / frame.height;
+                            var context = self.targetCanvas.getContext ('2d');
+                            var newWidth, newHeight;
+                            if (wideRatio < tallRatio) {
+                                newWidth = Math.floor (frame.width * wideRatio);
+                                newHeight = Math.floor (frame.height * wideRatio);
+                            } else {
+                                newWidth = Math.floor (frame.width * tallRatio);
+                                newHeight = Math.floor (frame.height * tallRatio);
+                            }
+                            try {
+                                context.drawImage (
+                                    self.workingCanvas,
+                                    Math.floor ((THUMB_SIZE - newWidth) / 2),
+                                    0,
+                                    newWidth,
+                                    newHeight
+                                );
+                                if (newWidth == VID_THUMB_WIDTH) {
+                                    context.drawImage (self.videoThumbOverlay, 0, 0);
+                                    self.finalCanvas.setAttribute ('width', THUMB_SIZE);
+                                    newWidth = THUMB_SIZE;
+                                } else {
+                                    var gutter = (THUMB_SIZE - VID_THUMB_WIDTH) / 2;
+                                    context.drawImage (
+                                        self.videoLeftGutter,
+                                        Math.floor ((THUMB_SIZE - newWidth) / 2) - gutter,
+                                        0
+                                    );
+                                    context.drawImage (
+                                        self.videoRightGutter,
+                                        Math.floor ((THUMB_SIZE + newWidth) / 2) - self.videoRightGutter.width + gutter,
+                                        0
+                                    );
+                                    newWidth += THUMB_SIZE - VID_THUMB_WIDTH
+                                    self.finalCanvas.setAttribute ('width', newWidth);
+                                }
+                                self.finalCanvas.setAttribute ('height', newHeight);
+                                self.finalCanvas.getContext ('2d').drawImage (
+                                    self.targetCanvas,
+                                    Math.floor ((THUMB_SIZE - newWidth) / 2),
+                                    0,
+                                    newWidth,
+                                    newHeight,
+                                    0,
+                                    0,
+                                    newWidth,
+                                    newHeight
+                                );
+                                finalImage = new Buffer (
+                                    self.finalCanvas.toDataURL().replace(/^data:image\/\w+;base64,/, ""),
+                                    'base64'
+                                );
+                            } catch (err) {
+                                return callback (err);
+                            }
+                            thumbHeight = newHeight;
+                            vlc.stop();
+                            callback();
+                        });
                     }
-                    try {
-                        context.drawImage (
-                            self.workingCanvas,
-                            Math.floor ((THUMB_SIZE - newWidth) / 2),
-                            0,
-                            newWidth,
-                            newHeight
-                        );
-                        if (newWidth == VID_THUMB_WIDTH) {
-                            context.drawImage (self.videoThumbOverlay, 0, 0);
-                            self.finalCanvas.setAttribute ('width', THUMB_SIZE);
-                            newWidth = THUMB_SIZE;
-                        } else {
-                            var gutter = (THUMB_SIZE - VID_THUMB_WIDTH) / 2;
-                            context.drawImage (
-                                self.videoLeftGutter,
-                                Math.floor ((THUMB_SIZE - newWidth) / 2) - gutter,
-                                0
-                            );
-                            context.drawImage (
-                                self.videoRightGutter,
-                                Math.floor ((THUMB_SIZE + newWidth) / 2) - self.videoRightGutter.width + gutter,
-                                0
-                            );
-                            newWidth += THUMB_SIZE - VID_THUMB_WIDTH
-                            self.finalCanvas.setAttribute ('width', newWidth);
-                        }
-                        self.finalCanvas.setAttribute ('height', newHeight);
-                        self.finalCanvas.getContext ('2d').drawImage (
-                            self.targetCanvas,
-                            Math.floor ((THUMB_SIZE - newWidth) / 2),
-                            0,
-                            newWidth,
-                            newHeight,
-                            0,
-                            0,
-                            newWidth,
-                            newHeight
-                        );
-                        finalImage = new Buffer (
-                            self.finalCanvas.toDataURL().replace(/^data:image\/\w+;base64,/, ""),
-                            'base64'
-                        );
-                    } catch (err) {
-                        return callback (err);
-                    }
-                    thumbHeight = newHeight;
-                    vlc.stop();
-                    callback();
-                });
+                ], callback);
             },
             function (callback) {
                 fs.stat (filepath, function (err, filestats) {

@@ -118,7 +118,7 @@ html {
     top: 8px;
     right: 217px;
     bottom: 6px;
-    left: 3em;
+    left: 50px;
     background-color: #FFB2FC;
     cursor: pointer;
 }
@@ -132,17 +132,17 @@ html {
 #SeekCaret .caret {
     position: absolute;
     cursor: -webkit-grab;
-    border: 6px solid #64006F;
-    width: 3px;
+    border: 6px solid #7E077A;
+    width: 4px;
     height: 12px;
     top: -6px;
-    left: -3px;
+    left: -8px;
 }
 
 #SeekCaret .text {
     position: absolute;
     top: -3px;
-    left: 0;
+    left: -3px;
     font-size: 14px;
     color: #6B0166;
     padding-left: 13px;
@@ -154,7 +154,7 @@ html {
 
     right: 0;
     padding-left: 0;
-    padding-right: 3px;
+    padding-right: 10px;
 }
 
 #MuteIndicator {
@@ -178,7 +178,7 @@ html {
 #VolumeCaret {
     position: absolute;
     width: 0;
-    left: -170px;
+    left: 0px;
 }
 
 #VolumeCaret div {
@@ -212,6 +212,7 @@ html {
     color: #fff;
     font-family: verdana;
     text-align: center;
+    padding: 3px 0;
     /* height: 19px; */
 }
 
@@ -230,6 +231,7 @@ html {
 }
 
 #Controls label {
+    line-height: 5px;
 }
 
 #Controls input {
@@ -247,15 +249,15 @@ html {
 
 #Drag {
     float: left;
-    height: 21px;
-    margin: 2px;
+    height: 22px;
+    margin: -2px 0 -2px 1px;
 }
 
 .controlButton {
     float: right;
-    height: 23px;
+    height: 25px;
     width: 31px;
-    margin: 2px;
+    margin: -3px 0;
     transition: background-color 0.3s ease-in-out;
     cursor: pointer;
     -webkit-app-region: no-drag;
@@ -312,7 +314,6 @@ html {
 }
 
 #ContextMenuKeyboardTarget {
-    visibility: hidden;
     position: absolute;
     left: -9001px;
 }
@@ -350,6 +351,10 @@ html {
     cursor: pointer;
     transition: background-color 0.3s ease-out;
     position: relative;
+}
+
+.CX_Section.empty {
+    color: #BEBEBE;
 }
 
 .CX_Children {
@@ -412,11 +417,10 @@ html {
 }
 
 #StartBlock {
-    width: 3em;
+    left: 0;
 }
 
 #EndBlock {
-    width: 3em;
     right: 0;
 }
 
@@ -499,8 +503,8 @@ html {
 }
 
 #StartBlock .endHandle div {
-    border-width: 21px 0.4em 0 0;
-    top: -23px;
+    border-width: 17px 0.4em 0 0;
+    top: -19px;
 }
 
 #EndBlock .startHandle {
@@ -509,8 +513,8 @@ html {
 }
 
 #EndBlock .startHandle div {
-    border-width: 21px 0 0 0.4em;
+    border-width: 17px 0 0 0.4em;
     border-color: transparent transparent transparent #343434;
-    top: -22px;
+    top: -19px;
     left: 0;
 }

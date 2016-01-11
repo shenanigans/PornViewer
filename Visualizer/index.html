@@ -15,10 +15,6 @@
     </div>
     <div id="Controls" class="image">
         <img id="Drag" src="drag.png" />
-        <div id="Close" class="controlButton"></div>
-        <div id="Maximize" class="controlButton"></div>
-        <div id="Minimize" class="controlButton"></div>
-        <div id="ImageControls" class="controlPane">
             <label for="MaxZoom">mode</label>
             <select id="Mode">
                 <option value="normal">fit</option>
@@ -27,7 +23,9 @@
             </select>
             <label for="UseCustom">Custom Zoom</label>
             <input id="UseCustom" type="checkbox" checked />
-        </div>
+        <div id="Close" class="controlButton"></div>
+        <div id="Maximize" class="controlButton"></div>
+        <div id="Minimize" class="controlButton"></div>
         <div id="VideoControls" class="controlPane">
             <div id="PlayPause">
                 <div id="PlayButton"></div>
@@ -36,16 +34,6 @@
             </div>
             <div id="SeekBar">
                 <div id="SeekCaret"><div class="caret"></div><div id="SeekTime" class="text"></div></div>
-                <!-- <div id="StartBlock" class="noplayBlock">
-                    <div class="seekHandle endHandle"><span>0:35</span><div></div></div>
-                </div>
-                <div id="TestBlock" class="noplayBlock">
-                    <div class="seekHandle endHandle"><span>4:20</span><div></div></div>
-                    <div class="seekHandle startHandle"><span>0:35</span><div></div></div>
-                </div>
-                <div id="EndBlock" class="noplayBlock">
-                    <div class="seekHandle startHandle"><span>4:20</span><div></div></div>
-                </div> -->
             </div>
             <img id="MuteIndicator" src="mute.png" />
             <div id="VolumeBar"><div id="VolumeCaret" style="left:0px;"><div></div></div></div>
@@ -53,7 +41,7 @@
         <div id="EventScreen"></div>
     </div>
     <div id="ContextMenu">
-        <input id="ContextMenuKeyboardTarget" type="text" />
+        <textarea id="ContextMenuKeyboardTarget" type="text"></textarea>
         <div id="CX_Options_Reset" class="CX_Option">
             <span id="CX_Short_Reset" class="CX_Shortcut">R</span>eset View
         </div>
@@ -79,8 +67,8 @@
             <div id="CX_Options_Start" class="CX_Option">
                 Always <span id="CX_Short_Start" class="CX_Shortcut">S</span>tart Here
             </div>
-            <div id="CX_Options_Stop" class="CX_Option">
-                Always Sto<span id="CX_Short_Stop" class="CX_Shortcut">p</span> Here
+            <div id="CX_Options_End" class="CX_Option">
+                Always Sto<span id="CX_Short_End" class="CX_Shortcut">p</span> Here
             </div>
             <div id="CX_Options_Skip" class="CX_Option">
                 S<span id="CX_Short_Skip" class="CX_Shortcut">k</span>ip This Part
