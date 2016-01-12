@@ -40,22 +40,6 @@ function Visualizer (winnder, console) {
     });
     this.dancer = this.document.getElementById ('Dancer');
 
-    var maxElem = this.document.getElementById ('Maximize');
-    maxElem.on ('click', function(){
-        if (self.isMaximized)
-            self.window.unmaximize();
-        else
-            self.window.maximize();
-    });
-    this.window.on ('maximize', function(){
-        self.isMaximized = true;
-        maxElem.addClass ('restore');
-    });
-    this.window.on ('unmaximize', function(){
-        self.isMaximized = false;
-        maxElem.dropClass ('restore');
-    });
-
     // manual image viewing
     this.document.body.on ('wheel', function (event) {
         var shift = event.wheelDelta / 2000;
@@ -176,10 +160,6 @@ function Visualizer (winnder, console) {
         self.redraw();
         self.modeSelect.blur();
         window.localStorage.lastMode = self.mode;
-    });
-    this.closeElem = this.document.getElementById ('Close');
-    this.closeElem.on ('click', function(){
-        self.window.close();
     });
 
     this.useCustom = this.document.getElementById ('UseCustom');
@@ -513,7 +493,7 @@ function Visualizer (winnder, console) {
         self.contextMenuTargetInput.blur();
     }
     this.window.on ('blur', dismissContextMenu);
-    this.document.body.on ('mousedown', function (event) {
+    this.document.body.on ('mouseup', function (event) {
         if (event.button != 2) {
             dismissContextMenu();
             return;
@@ -530,9 +510,7 @@ function Visualizer (winnder, console) {
             top -= self.contextMenu.clientHeight;
         self.contextMenu.setAttribute ('style', 'left:'+left+'px;top:'+top+'px;');
         self.contextMenu.addClass ('active');
-        setTimeout (function(){
-            self.contextMenuTargetInput.focus();
-        }, 1);
+        self.contextMenuTargetInput.focus();
     });
 
     // context menu buttons
@@ -645,6 +623,24 @@ function Visualizer (winnder, console) {
         else
             self.vlc.subtitles.track = selectedI;
         setTimeout (dismissContextMenu, 500);
+    });
+
+    this.document.body.on ('keyup', function (event) {
+        if (
+            event.keyCode != 18
+         && event.keyCode != 93
+         && event.keyCode != 91
+        )
+            return;
+
+        if (self.contextMenu.hasClass ('active')) {
+            dismissContextMenu();
+            return;
+        }
+        self.setupContextMenu();
+        self.contextMenu.setAttribute ('style', 'left:50px;top:100px;');
+        self.contextMenu.addClass ('active');
+        self.contextMenuTargetInput.focus();
     });
 }
 module.exports = Visualizer;

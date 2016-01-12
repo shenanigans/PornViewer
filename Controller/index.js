@@ -16,11 +16,14 @@ var KNOWN_EXT = [ '.jpg', '.jpeg', '.png', '.gif', '.wmv', '.avi', '.mkv', '.rm'
 var IMAGE_EXT = [ '.jpg', '.jpeg', '.png', '.gif' ];
 var IMAGE_EXT_MAP =  { '.jpg':true, '.jpeg':true, '.png':true, '.gif':true };
 
-function Controller (winnder, visualizer, console) {
+var UP = 38;
+var RIGHT = 39;
+var DOWN = 40;
+var LEFT = 37;
+function Controller (winnder, visualizer) {
     EventEmitter.call (this);
     this.window = winnder;
     this.document = winnder.window.document;
-    this.console = console;
     this.visualizer = visualizer;
     this.warrior = new ThumbWarrior (this.document);
 
@@ -51,10 +54,6 @@ function Controller (winnder, visualizer, console) {
     // when the window first resizes at startup, the resize event isn't sent. We have to poll.
     var initialInterval = setInterval (resize, 100);
     winnder.on ('resize', resize);
-
-    this.document.getElementById ('Close').on ('click', function(){
-        self.window.close();
-    });
 
     // controls
     this.thumbsTop = this.document.getElementById ('Controls').getBoundingClientRect().bottom;
@@ -120,15 +119,14 @@ function Controller (winnder, visualizer, console) {
     }};
     this.root.root = root;
 
+    // tree resize bar
     var resizeBar = this.document.getElementById ('ResizeBar');
     var resizingTree = false;
     resizeBar.on ('mousedown', function(){
-        console.log ('resizing tree');
         resizingTree = true;
         return false;
     });
     this.document.body.on ('mousemove', function (event) {
-        console.log ('mousemove');
         if (!resizingTree)
             return;
         self.treeElem.setAttribute (
@@ -140,6 +138,55 @@ function Controller (winnder, visualizer, console) {
     });
     this.document.body.on ('mouseup', function(){ resizingTree = false; });
     this.document.body.on ('mouseleave', function(){ resizingTree = false; });
+
+    // slideshow controls
+    var slideshowInterval, slideDirection;
+    var slideshowControls = this.document.getElementById ('SlideshowControls');
+    var slideshowSeconds = this.document.getElementById ('SlideshowSeconds');
+    slideshowSeconds.on ('keypress', function (event) {
+        var current = slideshowSeconds.value;
+        var next = current + String.fromCharCode (event.charCode);
+        var nextNum = Number (next);
+        if (isNaN (nextNum))
+            return false;
+        slide (nextNum);
+        return true;
+    });
+    slideshowSeconds.on ('change', function(){
+        var seconds = Number (slideshowSeconds.value);
+        if (isNaN (seconds))
+            return false;
+        slide (seconds);
+    });
+    function slide (seconds) {
+        if (!seconds) {
+            seconds = Number (slideshowSeconds.value);
+            if (isNaN (seconds))
+                return;
+        }
+        seconds = Math.max (seconds, 0.5);
+        clearInterval (slideshowInterval);
+        slideshowInterval = setInterval (function(){
+            self.go (slideDirection);
+            var newTime = Number (slideshowSeconds.value);
+            if (newTime === seconds || isNaN (newTime))
+                return;
+            slide (newTime);
+        }, seconds * 1000);
+        slideshowControls.addClass ('playing');
+    }
+    this.document.getElementById ('SlideshowRight').on ('click', function(){
+        slideDirection = RIGHT;
+        slide();
+    });
+    this.document.getElementById ('SlideshowLeft').on ('click', function(){
+        slideDirection = LEFT;
+        slide();
+    });
+    this.document.getElementById ('SlideshowPause').on ('click', function(){
+        clearInterval (slideshowInterval);
+        slideshowControls.dropClass ('playing');
+    });
 
     // on windows we need to enumerate the drives
     if (process.platform == 'win32')

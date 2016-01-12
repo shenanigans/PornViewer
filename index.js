@@ -2,6 +2,7 @@
 var fs = require ('fs');
 var path = require ('path');
 var async = require ('async');
+var needle = require ('needle');
 var gui = require ('nw.gui');
 var Visualizer = require ('./Visualizer');
 var Controller = require ('./Controller');
@@ -38,14 +39,42 @@ controllerWindow = gui.Window.open ('./Controller/index.html', {
     icon:           'icon.png'
 });
 
+var KONAMI = [
+    38, 38,
+    40, 40,
+    37, 39,
+    37, 39,
+    66, 65
+];
+var mainWindowOpened = false;
+function konamifyWinnder (winnder) {
+    var reg = [
+        undefined, undefined, undefined, undefined, undefined,
+        undefined, undefined, undefined, undefined, undefined
+    ];
+    winnder.window.document.body.on ('keyup', function (event) {
+        reg.shift();
+        reg.push (event.keyCode);
+        console.log (reg);
+        for (var i=KONAMI.length; i>=0; i--)
+            if (reg[i] !== KONAMI[i])
+                return;
+        winnder.showDevTools();
+        if (!mainWindowOpened) {
+            mainWindowOpened = true;
+            gui.Window.get().showDevTools();
+        }
+    });
+}
+
 // set up window position
-// var winState = window.localStorage.windowState;
-var winState;
+var winState = window.localStorage.winState;
 var screens = gui.Screen.Init().screens;
 if (winState) {
     winState = JSON.parse (winState);
     // make sure this state is still displayable
 
+    // delete winState;
 }
 if (!winState) {
     if (screens.length > 1) {
@@ -114,16 +143,35 @@ if (!winState) {
         };
 
     }
-    // window.localStorage.windowState = JSON.stringify (winState);
 }
 
-// uncomment to show devtools at startup
 var Window = gui.Window.get();
+var beggarArmed = false;
 Window.on ('loaded', function(){
     scum (Window.window);
     var dorkument = Window.window.document;
-    // Window.show();
+
+    // uncomment to show the primary console at startup
     // Window.showDevTools();
+
+    //
+    // Window.show();
+
+    var nextNag = window.localStorage.nag;
+    if (nextNag == 'NEVER')
+        return;
+    if (!nextNag) {
+        window.localStorage.nag = 10;
+        return;
+    }
+    nextNag = Number (nextNag);
+    if (nextNag > 0) {
+        window.localStorage.nag = nextNag - 1;
+        return;
+    }
+
+    window.localStorage.nag = 10;
+    beggarArmed = true;
 
     var payAmount = dorkument.getElementById ('PayAmount');
     payAmount.on ('keypress', function (event) {
@@ -132,46 +180,104 @@ Window.on ('loaded', function(){
         var nextNum = Number (next);
         if (isNaN (nextNum))
             return false;
-        if (nextNum < 5)
-            return false;
         return true;
     });
 
     var payFrame = dorkument.getElementById ('PayFrame');
     payFrame.contentWindow.setup (
         function (token) {
-            console.log ('token', token);
+            needle.post (
+                'http://civilus.net/payment',
+                {
+                    email:  token.email,
+                    token:  token.id,
+                    cents:  Math.floor (payAmount.value * 100)
+                },
+                { json:true, parse:'json' },
+                function (err, response) {
+                    if (err) {
+
+                        return;
+                    }
+                    if (response.statusCode == 200) {
+                        // woo! thanks for the moneys!
+                        window.localStorage.nag = 'NEVER';
+                        window.document.body.innerHTML = '<h1>Thank You!</h1>\n\
+<p>Open source software is this developer\'s day job. Therefor, each donation is deeply appreciated \
+no matter how big or small. And remember, it\'s all for a good cause: more porn!</p>\n\
+<p>And don\'t worry, these guilt-trip naggy messages begging for money will never appear again!</p>';
+                        setTimeout (function(){
+                            Window.close();
+                            setTimeout (function(){
+                                gui.App.quit();
+                            }, 50);
+                        }, 5000);
+                    } else {
+                        window.alert (
+                            'An error occured: '
+                          + response.body.error
+                          + '\nPlease try again!'
+                        );
+                    }
+                }
+            );
         },
         function(){
             payFrame.className = 'active';
+            payAmount.setAttribute ('disabled', true);
         },
         function(){
             payFrame.className = '';
+            payAmount.setAttribute ('disabled', false);
         }
     );
     dorkument.getElementById ('PayMe').on ('click', function(){
-        var innerDocument = payFrame.contentDocument.body.children[0].contentDocument;
-        var newStyle = innerDocument.createElement ('style');
-        newStyle.innerHTML = ".overlayView.active { overflow:hidden !important; }";
-        innerDocument.head.appendChild (newStyle);
+        try {
+            var innerDocument = payFrame.contentDocument.body.children[0].contentDocument;
+            var newStyle = innerDocument.createElement ('style');
+            newStyle.innerHTML = ".overlayView.active { overflow:hidden !important; }";
+            innerDocument.head.appendChild (newStyle);
+        } catch (err) {
+            console.log ('could not tweak pay frame document', err);
+        }
         payFrame.contentWindow.handle (Math.floor (payAmount.value * 100));
     });
 });
 
 // basic cross-window event listeners
-controllerWindow.on ('close', function(){
-    visualizerWindow.close();
-    controllerWindow.close (true);
-    shutdown();
-});
-visualizerWindow.on ('close', function(){
-    controllerWindow.close();
-    visualizerWindow.close (true);
-    shutdown();
-});
+controllerWindow.on ('close', shutdown);
+visualizerWindow.on ('close', shutdown);
 
+var dead = false;
 function shutdown(){
+    if (dead)
+        return;
+    dead = true;
 
+    window.localStorage.winState = JSON.stringify ({
+        controller:     {
+            x:              controllerWindow.x,
+            y:              controllerWindow.y,
+            width:          controllerWindow.width,
+            height:         controllerWindow.height
+        },
+        visualizer:     {
+            x:              visualizerWindow.x,
+            y:              visualizerWindow.y,
+            width:          visualizerWindow.width,
+            height:         visualizerWindow.height
+        },
+    });
+    console.log (window.localStorage.winState);
+
+    controllerWindow.close (true);
+    visualizerWindow.close (true);
+
+    if (beggarArmed) {
+        beggarArmed = false;
+        Window.show();
+        return;
+    }
     setTimeout (function(){
         gui.App.quit();
     }, 50);
@@ -246,6 +352,7 @@ async.parallel ([
     function (callback) {
         controllerWindow.on ('loaded', function(){
             scum (controllerWindow.window);
+            konamifyWinnder (controllerWindow);
             controllerWindow.x = winState.controller.x;
             controllerWindow.y = winState.controller.y;
             controllerWindow.resizeTo (
@@ -263,22 +370,20 @@ async.parallel ([
             var maxElem = controllerWindow.window.document.getElementById ('Maximize');
             var isMaximized = false;
             maxElem.on ('click', function(){
-                console.log ('maxClick');
                 if (isMaximized)
                     controllerWindow.unmaximize();
                 else
                     controllerWindow.maximize();
             });
             controllerWindow.on ('maximize', function(){
-                console.log ('didMaximize');
                 isMaximized = true;
                 maxElem.addClass ('restore');
             });
             controllerWindow.on ('unmaximize', function(){
-                console.log ('did unMaximize');
                 isMaximized = false;
                 maxElem.dropClass ('restore');
             });
+            controllerWindow.window.document.getElementById ('Close').on ('click', shutdown);
 
             // controller ready
             callback();
@@ -287,6 +392,7 @@ async.parallel ([
     function (callback) {
         visualizerWindow.on ('loaded', function(){
             scum (visualizerWindow.window);
+            konamifyWinnder (visualizerWindow);
             visualizerWindow.x = winState.visualizer.x;
             visualizerWindow.y = winState.visualizer.y;
             visualizerWindow.resizeTo (
@@ -305,22 +411,20 @@ async.parallel ([
             var maxElem = visualizer.document.getElementById ('Maximize');
             var isMaximized = false;
             maxElem.on ('click', function(){
-                console.log ('maxClick');
                 if (isMaximized)
                     visualizerWindow.unmaximize();
                 else
                     visualizerWindow.maximize();
             });
             visualizerWindow.on ('maximize', function(){
-                console.log ('didMaximize');
                 isMaximized = true;
                 maxElem.addClass ('restore');
             });
             visualizerWindow.on ('unmaximize', function(){
-                console.log ('did unMaximize');
                 isMaximized = false;
                 maxElem.dropClass ('restore');
             });
+            visualizer.document.getElementById ('Close').on ('click', shutdown);
 
             // bump controls into view whenever the mouse moves
             var controlsTimer;
@@ -358,11 +462,9 @@ async.parallel ([
     controller = new Controller (controllerWindow, visualizer, window.console);
     controller.document.body.on ('keydown', handleKey);
     controller.on ('display', function (prawn) {
-        console.log ('display', prawn);
         visualizer.display (prawn);
     });
     controller.on ('preload', function (prawn) {
-        console.log ('preload', prawn);
         visualizer.preload (prawn);
     });
 

@@ -1,7 +1,7 @@
 {
   "name": "PornViewer",
   "main": "index.html",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "dependencies": {
     "async": "^1.4.2",
     "cachew": "^0.1.1",
@@ -10,12 +10,13 @@
     "infosex": "^0.1.3",
     "lwip": "^0.0.7",
     "mkdirp": "^0.5.1",
+    "needle": "^0.11.0",
     "scum": "0.0.1",
     "surveil": "0.0.3",
     "wcjs-renderer": "git://github.com/shenanigans/wcjs-renderer#f83d1f1e4b56dcbe89a4454232f6ae08f4773a2a"
   },
   "window": {
-    "title": "PornMaster",
+    "title": "Support PornViewer",
     "icon": "icon.png",
     "show": false,
     "toolbar": false,

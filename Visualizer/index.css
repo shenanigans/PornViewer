@@ -64,6 +64,7 @@ html {
 
 #VideoControls {
     display: none;
+    margin-bottom: -3px;
 }
 
 .video #VideoControls {
