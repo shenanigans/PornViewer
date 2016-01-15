@@ -1,6 +1,7 @@
 # PornViewer
-An image and video viewer for mission-critical applications. Designed to provide a pleasurable viewing
-experience. Theoretically cross-platform, currently available on Windows.
+An image and video viewer designed to provide a pleasurable viewing experience for pornographic
+material. This doesn't necessarily make it poor at viewing regular photos and videos. While
+theoretically cross-platform, it is currently only available on Windows.
 
 ![screenshot](http://i.imgur.com/MVzG6xH.jpg)
 
@@ -15,14 +16,16 @@ page that doesn't end in "under construction".
 Also:
  * clean design that doesn't waste your pixels or time
  * uses libvlc to play a generous assortment of video formats
+ * skip the part with somebody's dumb sweaty face hogging the screen
  * animated gifs play with a pretty high quality upscale, it's nice
  * really fast thumbnail caching and sorting
  * slightly clever name sorting picks up on numbers better
- * very small RAM footprint
+ * surprisingly small resource footprint, except for bulk thumbnail storage
 
 ## How
  * Use dem arrow keys.
- * Use alt/option or control with dem arrow keys to skip your videos. Add shift for moar skippage.
+ * Use alt/option or control with dem arrow keys to skip your videos. Add shift for less skippage.
+ * Right click in the viewing area, or tap alt.
  * move images or directories around by dragging and dropping them.
 
 ## Caveats
