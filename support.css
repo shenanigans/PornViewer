@@ -28,6 +28,7 @@ p {
     margin: 2em auto;
     border: 1px solid #B6B6B6;
     box-shadow: 0 0 1em rgba(0, 0, 0, 0.21);
+    position: relative;
 }
 
 #PayAmount {
@@ -38,7 +39,7 @@ p {
     padding: 0.2em 0 0.1em 0.2em;
 }
 
-#PayMe {
+#PayMe, #AlreadyPaidButton {
     background-color: #E600DD;
     color: #fff;
     font-size: 115%;
@@ -71,4 +72,117 @@ p {
 
 .overlayView.active {
     overflow: none;
+}
+
+#EndAnnoyanceCollapso {
+    display: none;
+    position: relative;
+}
+
+#EndAnnoyanceCollapso.active {
+    display: block;
+}
+
+.throbber {
+    height: 1.2em;
+    width: 1.2em;
+    border-radius: 50%;
+    background-color: rgb(230, 0, 221);
+    position: relative;
+}
+
+@-webkit-keyframes spin {
+    0% {
+        -webkit-transform: rotate(0deg);
+    }
+    100% {
+        -webkit-transform: rotate(360deg);
+    }
+}
+
+.throbber .spinner {
+    position: absolute;
+    top: 5%;
+    left: 5%;
+    width: 90%;
+    height: 90%;
+    -webkit-animation: spin 1s infinite;
+    -webkit-animation-timing-function: ease;
+}
+
+.throbber .spinner .pip {
+    position: absolute;
+    top: 0;
+    right: 42%;
+    width: 16%;
+    height: 16%;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.66);
+}
+
+.throbber .core + .spinner {
+    -webkit-animation-delay: 0.2s;
+}
+
+.throbber .spinner:last-child {
+    -webkit-animation-delay: 0.4s;
+}
+
+@-webkit-keyframes throb {
+    0% {
+        top: 40%;
+        left: 40%;
+        width: 20%;
+        height: 20%;
+        background-color: rgba(255, 255, 255, 0.0);
+    }
+    40% {
+        top: 10%;
+        left: 10%;
+        width: 80%;
+        height: 80%;
+        background-color: rgba(255, 255, 255, 0.4);
+    }
+    60% {
+        top: 10%;
+        left: 10%;
+        width: 80%;
+        height: 80%;
+        background-color: rgba(255, 255, 255, 0.4);
+    }
+    100% {
+        top: 40%;
+        left: 40%;
+        width: 20%;
+        height: 20%;
+        background-color: rgba(255, 255, 255, 0.0);
+    }
+}
+
+.throbber .core {
+    position: absolute;
+    left: 50%;
+    -webkit-animation: throb 1s infinite;
+    -webkit-animation-timing-function: ease;
+    border-radius: 50%;
+}
+
+#NetworkThrobber {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: none;
+}
+
+#NetworkThrobber.active {
+    display: block;
+}
+
+#NetworkThrobber .throbber {
+    width: 100px;
+    height: 100px;
+    left: -50px;
+    top: -50px;
+    opacity: 1;
+    box-shadow: 0 0 100px 10px #000;
 }

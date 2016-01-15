@@ -1,7 +1,7 @@
 {
   "name": "PornViewer",
   "main": "index.html",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "dependencies": {
     "async": "^1.4.2",
     "cachew": "^0.1.1",

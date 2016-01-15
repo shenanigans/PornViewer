@@ -381,7 +381,7 @@ html {
     min-height: 100px;
 }
 
-.active > .CX_Option:hover, .active > .CX_Section:hover {
+.active > .CX_Option:hover, .active > .CX_Section:hover, .CX_Section.open {
     background-color: #FDC4FC;
 }
 

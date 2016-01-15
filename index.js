@@ -55,7 +55,6 @@ function konamifyWinnder (winnder) {
     winnder.window.document.body.on ('keyup', function (event) {
         reg.shift();
         reg.push (event.keyCode);
-        console.log (reg);
         for (var i=KONAMI.length; i>=0; i--)
             if (reg[i] !== KONAMI[i])
                 return;
@@ -73,7 +72,7 @@ var screens = gui.Screen.Init().screens;
 if (winState) {
     winState = JSON.parse (winState);
     // make sure this state is still displayable
-
+    // ...or not. Probably the OS is on top of this one.
     // delete winState;
 }
 if (!winState) {
@@ -147,16 +146,22 @@ if (!winState) {
 
 var Window = gui.Window.get();
 var beggarArmed = false;
+var alreadyRan = false;
 Window.on ('loaded', function(){
+    if (alreadyRan) // for some reason this keeps happening lately
+        return;
+    alreadyRan = true;
+
     scum (Window.window);
     var dorkument = Window.window.document;
 
     // uncomment to show the primary console at startup
     // Window.showDevTools();
 
-    //
+    // show beggar window immediately
     // Window.show();
 
+    // when working on the beggar window, this stuff about the nag counter needs to be commended out
     var nextNag = window.localStorage.nag;
     if (nextNag == 'NEVER')
         return;
@@ -169,7 +174,6 @@ Window.on ('loaded', function(){
         window.localStorage.nag = nextNag - 1;
         return;
     }
-
     window.localStorage.nag = 10;
     beggarArmed = true;
 
@@ -187,7 +191,7 @@ Window.on ('loaded', function(){
     payFrame.contentWindow.setup (
         function (token) {
             needle.post (
-                'http://civilus.net/payment',
+                'http://kaztl.com/payment',
                 {
                     email:  token.email,
                     token:  token.id,
@@ -196,29 +200,34 @@ Window.on ('loaded', function(){
                 { json:true, parse:'json' },
                 function (err, response) {
                     if (err) {
-
+                        window.alert (
+                            '\
+A network error occured. Please double check your internet connection \
+and try again!'
+                        );
                         return;
                     }
-                    if (response.statusCode == 200) {
-                        // woo! thanks for the moneys!
-                        window.localStorage.nag = 'NEVER';
-                        window.document.body.innerHTML = '<h1>Thank You!</h1>\n\
-<p>Open source software is this developer\'s day job. Therefor, each donation is deeply appreciated \
-no matter how big or small. And remember, it\'s all for a good cause: more porn!</p>\n\
-<p>And don\'t worry, these guilt-trip naggy messages begging for money will never appear again!</p>';
-                        setTimeout (function(){
-                            Window.close();
-                            setTimeout (function(){
-                                gui.App.quit();
-                            }, 50);
-                        }, 5000);
-                    } else {
+                    if (response.statusCode != 200) {
                         window.alert (
                             'An error occured: '
                           + response.body.error
                           + '\nPlease try again!'
                         );
+                        return;
                     }
+
+                    // woo! thanks for the moneys!
+                    window.localStorage.nag = 'NEVER';
+                    window.document.body.innerHTML = '<h1>Thank You!</h1>\n\
+<p>Open source software is this developer\'s day job. Therefor, each donation is deeply appreciated \
+no matter how big or small. And remember, it\'s all for a good cause: more porn!</p>\n\
+<p>And don\'t worry, these guilt-trip naggy messages begging for money will never appear again!</p>';
+                    setTimeout (function(){
+                        Window.close();
+                        setTimeout (function(){
+                            gui.App.quit();
+                        }, 50);
+                    }, 15000);
                 }
             );
         },
@@ -241,6 +250,55 @@ no matter how big or small. And remember, it\'s all for a good cause: more porn!
             console.log ('could not tweak pay frame document', err);
         }
         payFrame.contentWindow.handle (Math.floor (payAmount.value * 100));
+    });
+
+    var alreadyPaidButton = dorkument.getElementById ('EndAnnoyanceButton');
+    var alreadyPaidCollapso = dorkument.getElementById ('EndAnnoyanceCollapso');
+    alreadyPaidButton.on ('click', function(){
+        alreadyPaidCollapso.addClass ('active');
+        alreadyPaidButton.dispose();
+    });
+    var lookupPaymentEmail = dorkument.getElementById ('AlreadyPaidEmail');
+    var lookupPaymentButton = dorkument.getElementById ('AlreadyPaidButton');
+    lookupPaymentButton.on ('click', function(){
+        needle.get (
+            'http://kaztl.com/payment?email=' + encodeURIComponent (lookupPaymentEmail.value),
+            { parse:'json' },
+            function (err, response) {
+                if (err) {
+                    window.alert (
+                        '\
+A network error occured. Please double check your internet connection \
+and try again!'
+                    );
+                    return;
+                }
+                if (response.statusCode != 200) {
+                    if (response.statusCode == 404)
+                        window.alert (
+                            'Your payment could not be found. Are you sure this is the email '
+                          + 'address you used to pay before, and have you typed it correctly?'
+                        );
+                    else
+                        window.alert (
+                            'An error occured: ' + response.body.error + '\n\nPlease try again!'
+                        );
+                    return;
+                }
+
+                window.localStorage.nag = 'NEVER';
+                window.document.body.innerHTML = '<h1>Nagging Deactivated</h1>\n\
+<p>Your nag messages have been permanently deactivated. But by the way: Open source software is \
+this developer\'s day job. The more you give, the better your porn viewing experience can become!\
+</p>';
+                setTimeout (function(){
+                    Window.close();
+                    setTimeout (function(){
+                        gui.App.quit();
+                    }, 50);
+                }, 15000);
+            }
+        );
     });
 });
 
@@ -268,19 +326,21 @@ function shutdown(){
             height:         visualizerWindow.height
         },
     });
-    console.log (window.localStorage.winState);
 
-    controllerWindow.close (true);
-    visualizerWindow.close (true);
-
-    if (beggarArmed) {
-        beggarArmed = false;
-        Window.show();
-        return;
-    }
-    setTimeout (function(){
-        gui.App.quit();
-    }, 50);
+    window.localStorage.prefs_dev_con = JSON.stringify (controller.prefs);
+    window.localStorage.prefs_dev_viz = JSON.stringify (visualizer.prefs);
+    visualizer.savePron (function (err) {
+        controllerWindow.close (true);
+        visualizerWindow.close (true);
+        // if (beggarArmed) {
+        //     beggarArmed = false;
+        //     Window.show();
+        //     return;
+        // }
+        setTimeout (function(){
+            gui.App.quit();
+        }, 1000);
+    });
 }
 
 // load opened file or last path
@@ -401,7 +461,10 @@ async.parallel ([
             );
             if (winState.visualizer.maximize)
                 visualizerWindow.maximize();
-            visualizer = new Visualizer (visualizerWindow, window.console);
+            visualizer = new Visualizer (
+                visualizerWindow,
+                JSON.parse (window.localStorage.prefs_dev_viz)
+            );
 
             // setup controls
             // min - max - close
@@ -459,7 +522,11 @@ async.parallel ([
     }
 
     // ready to start the controller now
-    controller = new Controller (controllerWindow, visualizer, window.console);
+    controller = new Controller (
+        controllerWindow,
+        visualizer,
+        JSON.parse (window.localStorage.prefs_dev_con)
+    );
     controller.document.body.on ('keydown', handleKey);
     controller.on ('display', function (prawn) {
         visualizer.display (prawn);

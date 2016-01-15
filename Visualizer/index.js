@@ -1,6 +1,5 @@
 
 var path = require ('path');
-// var VideoManager = require ('./VideoManager');
 var chimera = require ('wcjs-renderer');
 
 /**     @module/class PornViewer:Visualizer
@@ -11,13 +10,13 @@ var IMAGE_EXT = [ '.jpg', '.jpeg', '.png', '.gif' ];
 var RE_LEFT = /left:(-?\d+)px/;
 var MIN_WIDTH = 10;
 var MIN_HEIGHT = 10;
-var MIN_SHOWING = 5;
+var MIN_SHOWING = 50;
 var MERGE_BLOCK = 0.5;
 var DELETE_BLOCK = 0.3;
-function Visualizer (winnder, console) {
+function Visualizer (winnder, prefs) {
     this.window = winnder;
     this.document = winnder.window.document;
-    this.console = console;
+    this.prefs = prefs || {};
 
     this.readyImages = {}; // images ready to display
     this.loadingImages = {};
@@ -195,9 +194,9 @@ function Visualizer (winnder, console) {
     var SeekBar = this.seekBar = this.document.getElementById ('SeekBar');
     var SeekCaret = this.seekCaret = this.document.getElementById ('SeekCaret');
     this.seekTimeElem = this.document.getElementById ('SeekTime');
-    var MuteIndicator = this.document.getElementById ('MuteIndicator');
-    var VolumeBar = this.document.getElementById ('VolumeBar');
-    var VolumeCaret = this.document.getElementById ('VolumeCaret');
+    var MuteIndicator = this.muteIndicator = this.document.getElementById ('MuteIndicator');
+    var VolumeBar = this.volumeBar = this.document.getElementById ('VolumeBar');
+    var VolumeCaret = this.volumeCaret = this.document.getElementById ('VolumeCaret');
     var playing = false;
 
     var VideoControls = this.document.getElementById ('VideoControls');
@@ -250,9 +249,14 @@ function Visualizer (winnder, console) {
         return false;
     });
 
-
-    var volumeDragging = false;
     var stashedVolume = 100;
+    if (Object.hasOwnProperty.call (this.prefs, 'volume')) {
+        var position = this.prefs.volume / 100;
+        VolumeCaret.setAttribute (
+            'style',
+            'left:' + (Math.floor (position * VolumeBar.offsetWidth) - VolumeBar.offsetWidth) + 'px;'
+        );
+    }
     MuteIndicator.on ('click', function (event) {
         if (!self.vlc)
             return false;
@@ -279,8 +283,8 @@ function Visualizer (winnder, console) {
 
         self.draggingItem = VolumeCaret;
 
-        var position = event.layerX / this.offsetWidth;
-        var rough = self.vlc.audio.volume = Math.floor (100 * position);
+        var position = self.prefs.volume = event.layerX / this.offsetWidth;
+        var rough = self.prefs.volume = self.vlc.audio.volume = Math.floor (100 * position);
         rough /= 100;
         VolumeCaret.setAttribute (
             'style',
@@ -407,7 +411,7 @@ function Visualizer (winnder, console) {
             if (newPosition >= range)
                 return false;
             VolumeCaret.setAttribute ('style', 'left:' + (newPosition - VolumeBar.offsetWidth) + 'px;');
-            self.vlc.audio.volume = Math.floor (100 * newPosition / range);
+            self.prefs.volume = self.vlc.audio.volume = Math.floor (100 * (newPosition / range));
             if (!newPosition)
                 MuteIndicator.setAttribute ('src', 'muted.png');
             else
@@ -485,6 +489,7 @@ function Visualizer (winnder, console) {
     this.contextMenu = this.document.getElementById ('ContextMenu');
     this.contextMenuTargetInput = this.document.getElementById ('ContextMenuKeyboardTarget')
     this.contextMenu.on ('mousedown', function (event) { event.stopPropagation(); return false; });
+    this.contextMenu.on ('mouseup', function (event) { event.stopPropagation(); return false; });
     this.contextMenu.on ('selectstart', function(){ return false; });
     this.videoMenuSection = this.document.getElementById ('CX_Options_Video');
     function dismissContextMenu(){
@@ -536,6 +541,7 @@ function Visualizer (winnder, console) {
         else {
             self.lastVideoControlSection = audioSectionButton;
             audioSectionButton.addClass ('open');
+            subtitleSectionButton.dropClass ('open');
         }
     }
     audioSectionButton.on ('click', toggleAudioSection);
@@ -547,6 +553,7 @@ function Visualizer (winnder, console) {
         else {
             self.lastVideoControlSection = subtitleSectionButton;
             subtitleSectionButton.addClass ('open');
+            audioSectionButton.dropClass ('open');
         }
     }
     subtitleSectionButton.on ('click', toggleSubtitleSection);
@@ -562,9 +569,8 @@ function Visualizer (winnder, console) {
     var resetVideoButton = this.document.getElementById ('CX_Options_Video_Reset');
     function resetPlayback(){
         dismissContextMenu();
-        delete self.activePron.extra.start;
-        delete self.activePron.extra.end;
-        delete self.activePron.extra.skip;
+        self.seekBar.disposeChildren();
+        self.seekBar.appendChild (self.seekCaret);
         self.redraw();
     }
     resetVideoButton.on ('click', resetPlayback);
@@ -657,7 +663,7 @@ Visualizer.prototype.setupContextMenu = function(){
         if (!this.vlc.audio) {
             // update when video is loaded
             this.vlc.events.once ('FrameReady', function(){
-
+                self.setupContextMenu();
             });
         } else {
             this.audioTrackButtons.disposeChildren();
@@ -701,7 +707,7 @@ Visualizer.prototype.setupContextMenu = function(){
                 this.subtitleSectionButton.addClass ('empty');
             for (var i=0,j=this.vlc.subtitles.count; i<j; i++) {
                 var trackButton = this.document.createElement ('div');
-                trackButton.className = trackNum == i ? 'CX_Option active' : 'CX_Option';
+                trackButton.className = subNum == i ? 'CX_Option active' : 'CX_Option';
                 trackButton.setAttribute ('data-index', i);
                 var shortspan = this.document.createElement ('span');
                 shortspan.className = 'CX_Shortcut';
@@ -749,47 +755,7 @@ Visualizer.prototype.display = function (prawn) {
     var self = this;
 
     if (this.activePron) {
-        // save any custom view info to disk
-        if (this.offsetX)
-            this.activePron.extra.X = this.offsetX;
-        else
-            delete this.activePron.extra.X;
-        if (this.offsetY)
-            this.activePron.extra.Y = this.offsetY;
-        else
-            delete this.activePron.extra.Y;
-        if (this.manualZoom || this.offsetX || this.offsetY)
-            this.activePron.extra.zoom = this.zoomRatio;
-        else
-            delete this.activePron.extra.zoom;
-
-        var start, end, skip = [];
-        for (var i=0,j=this.seekBar.children.length; i<j; i++) {
-            var block = this.seekBar.children[i];
-            if (!block.hasClass ('noplayBlock'))
-                continue;
-            if (block.id === 'StartBlock')
-                start = Number (block.firstChild.getAttribute ('data-time'));
-            else if (block.id === 'EndBlock')
-                end = Number (block.firstChild.getAttribute ('data-time'));
-            else
-                skip.push ([
-                    Number (block.firstChild.getAttribute ('data-time')),
-                    Number (block.lastChild.getAttribute ('data-time'))
-                ]);
-        }
-        if (start)
-            this.activePron.extra.start = start;
-        else
-            delete this.activePron.extra.start;
-        if (end)
-            this.activePron.extra.end = end;
-        else
-            delete this.activePron.extra.end;
-        if (skip.length)
-            this.activePron.extra.skip = skip;
-        else
-            delete this.activePron.extra.skip;
+        this.commitViewToPron();
         this.activePron.saveExtra();
     }
 
@@ -854,6 +820,20 @@ Visualizer.prototype.display = function (prawn) {
     var gl = this.vlcCanvas.getContext("webgl");
     gl.clearColor (0, 0, 0, 0);
     gl.clear (gl.COLOR_BUFFER_BIT);
+    if (Object.hasOwnProperty.call (this.prefs, 'volume')) {
+        this.vlc.volume = this.prefs.volume;
+        this.volumeCaret.setAttribute (
+            'style',
+            'left:'
+          + (Math.floor ((this.prefs.volume / 100) * this.volumeBar.offsetWidth) - this.volumeBar.offsetWidth)
+          + 'px;'
+        );
+        if (!this.prefs.volume)
+            this.muteIndicator.setAttribute ('src', 'muted.png');
+        else
+            this.muteIndicator.setAttribute ('src', 'mute.png');
+    }
+
 
     var videoInitialized = false;
     prawn.once ('thumb', function(){
@@ -997,6 +977,10 @@ Visualizer.prototype.display = function (prawn) {
             return;
         if (prawn.extra.start)
             self.vlc.time = prawn.extra.start;
+        if (Object.hasOwnProperty.call (prawn.extra, 'audio'))
+            self.vlc.audio.track = prawn.extra.audio;
+        if (Object.hasOwnProperty.call (prawn.extra, 'subs'))
+            self.vlc.subtitles.track = prawn.extra.subs;
     });
 
     this.vlc.events.once ('FrameSetup', function (width, height, format, frame) {
@@ -1005,6 +989,10 @@ Visualizer.prototype.display = function (prawn) {
         self.vlcCanvas.setAttribute ('height', height);
         if (self.activePron.extra.start)
             self.vlc.time = self.activePron.extra.start;
+        if (Object.hasOwnProperty.call (self.activePron.extra, 'audio'))
+            self.vlc.audio.track = self.activePron.extra.audio;
+        if (Object.hasOwnProperty.call (self.activePron.extra, 'subs'))
+            self.vlc.subtitles.track = self.activePron.extra.subs;
         self.redraw();
         self.setupContextMenu();
     });
@@ -1481,21 +1469,25 @@ Visualizer.prototype.redraw = function(){
 
         }
     }
-    if (top + height < MIN_SHOWING) {
-        // off top edge
-
+    if (top + height < MIN_SHOWING) {       // off top edge
+        top = MIN_SHOWING - height;
+        if (this.offsetY)
+            this.offsetY = top - Math.floor ((canvasHeight - height) / 2);
     }
-    if (left > canvasWidth - MIN_SHOWING) {
-        // off right edge
-
+    if (left > canvasWidth - MIN_SHOWING) { // off right edge
+        left = canvasWidth - MIN_SHOWING;
+        if (this.offsetX)
+            this.offsetX = left - Math.floor ((canvasWidth - width) / 2);
     }
-    if (top > canvasHeight - MIN_SHOWING) {
-        // off bottom edge
-
+    if (top > canvasHeight - MIN_SHOWING) { // off bottom edge
+        top = canvasHeight - MIN_SHOWING;
+        if (this.offsetY)
+            this.offsetY = top - Math.floor ((canvasHeight - height) / 2);
     }
-    if (left + canvasWidth < MIN_SHOWING) {
-        // off left edge
-
+    if (left + width < MIN_SHOWING) {       // off left edge
+        left = MIN_SHOWING - width;
+        if (this.offsetX)
+            this.offsetX = left - Math.floor ((canvasWidth - width) / 2);
     }
 
     if (this.dancer.firstChild) {
@@ -1521,3 +1513,63 @@ Visualizer.prototype.redraw = function(){
         this.dancer.appendChild (this.activeImage);
     }
 };
+
+Visualizer.prototype.savePron = function (callback) {
+    if (!this.activePron) {
+        if (callback)
+            process.nextTick (callback);
+        return;
+    }
+    this.commitViewToPron();
+    this.activePron.saveExtra (callback);
+};
+
+Visualizer.prototype.commitViewToPron = function(){
+    // save any custom view info to disk
+    if (this.offsetX)
+        this.activePron.extra.X = this.offsetX;
+    else
+        delete this.activePron.extra.X;
+    if (this.offsetY)
+        this.activePron.extra.Y = this.offsetY;
+    else
+        delete this.activePron.extra.Y;
+    if (this.manualZoom || this.offsetX || this.offsetY)
+        this.activePron.extra.zoom = this.zoomRatio;
+    else
+        delete this.activePron.extra.zoom;
+
+    if (this.activePron.isVideo) {
+        var start, end, skip = [];
+        for (var i=0,j=this.seekBar.children.length; i<j; i++) {
+            var block = this.seekBar.children[i];
+            if (!block.hasClass ('noplayBlock'))
+                continue;
+            if (block.id === 'StartBlock')
+                start = Number (block.firstChild.getAttribute ('data-time'));
+            else if (block.id === 'EndBlock')
+                end = Number (block.firstChild.getAttribute ('data-time'));
+            else
+                skip.push ([
+                    Number (block.firstChild.getAttribute ('data-time')),
+                    Number (block.lastChild.getAttribute ('data-time'))
+                ]);
+        }
+        if (start)
+            this.activePron.extra.start = start;
+        else
+            delete this.activePron.extra.start;
+        if (end)
+            this.activePron.extra.end = end;
+        else
+            delete this.activePron.extra.end;
+        if (skip.length)
+            this.activePron.extra.skip = skip;
+        else
+            delete this.activePron.extra.skip;
+        if (this.vlc) {
+            this.activePron.extra.audio = this.vlc.audio.track;
+            this.activePron.extra.subs = this.vlc.subtitles.track;
+        }
+    }
+}

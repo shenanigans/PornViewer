@@ -20,12 +20,13 @@ var UP = 38;
 var RIGHT = 39;
 var DOWN = 40;
 var LEFT = 37;
-function Controller (winnder, visualizer) {
+function Controller (winnder, visualizer, prefs) {
     EventEmitter.call (this);
     this.window = winnder;
     this.document = winnder.window.document;
     this.visualizer = visualizer;
     this.warrior = new ThumbWarrior (this.document);
+    this.prefs = prefs || {};
 
     this.hostElem = this.document.getElementById ('Host');
     var self = this;
@@ -58,9 +59,10 @@ function Controller (winnder, visualizer) {
     // controls
     this.thumbsTop = this.document.getElementById ('Controls').getBoundingClientRect().bottom;
     this.sortSelect = this.document.getElementById ('Sort');
-    this.sortBy = 'name';
+    this.sortBy = this.prefs.sort || 'name';
+    this.sortSelect.value = this.sortBy;
     this.sortSelect.on ('change', function(){
-        self.sortBy = self.sortSelect.value;
+        self.prefs.sort = self.sortBy = self.sortSelect.value;
         // sort existing
         var potemkin = [];
         Array.prototype.push.apply (potemkin, self.thumbsElem.children);
@@ -104,6 +106,8 @@ function Controller (winnder, visualizer) {
     // set up Tree Element
     this.treeTop = this.document.getElementById ('Bar').getBoundingClientRect().bottom;
     this.treeElem = this.document.getElementById ('Tree');
+    if (this.prefs.treeWidth)
+        this.treeElem.setAttribute ('style', 'width:' + this.prefs.treeWidth + 'px;');
     var root = this.root = { children:{}, childrenElem:this.treeElem, getDir:function (dir) {
         var dirFrags = dir
          .split (process.platform == 'win32' ? /[\/\\]/g : /\//g)
@@ -129,12 +133,15 @@ function Controller (winnder, visualizer) {
     this.document.body.on ('mousemove', function (event) {
         if (!resizingTree)
             return;
-        self.treeElem.setAttribute (
-            'style',
-            'width:'
-          + Math.max (100, Math.min (event.clientX, self.window.window.innerWidth - 100))
-          + 'px;'
+        var newWidth = Math.max (
+            100,
+            Math.min (
+                event.clientX - 8,
+                self.window.window.innerWidth - 100
+            )
         );
+        self.treeElem.setAttribute ('style', 'width:' + newWidth + 'px;');
+        self.prefs.treeWidth = newWidth;
     });
     this.document.body.on ('mouseup', function(){ resizingTree = false; });
     this.document.body.on ('mouseleave', function(){ resizingTree = false; });
@@ -149,20 +156,26 @@ function Controller (winnder, visualizer) {
         var nextNum = Number (next);
         if (isNaN (nextNum))
             return false;
-        slide (nextNum);
+        self.prefs.slide = seconds;
+        if (slideDirection)
+            slide (nextNum);
         return true;
     });
     slideshowSeconds.on ('change', function(){
         var seconds = Number (slideshowSeconds.value);
         if (isNaN (seconds))
             return false;
-        slide (seconds);
+        self.prefs.slide = seconds;
+        if (slideDirection)
+            slide (seconds);
+        return true;
     });
     function slide (seconds) {
         if (!seconds) {
             seconds = Number (slideshowSeconds.value);
             if (isNaN (seconds))
                 return;
+            self.prefs.slide = seconds;
         }
         seconds = Math.max (seconds, 0.5);
         clearInterval (slideshowInterval);
@@ -185,6 +198,7 @@ function Controller (winnder, visualizer) {
     });
     this.document.getElementById ('SlideshowPause').on ('click', function(){
         clearInterval (slideshowInterval);
+        delete slideDirection;
         slideshowControls.dropClass ('playing');
     });
 
@@ -328,19 +342,21 @@ Controller.prototype.select = function (dirpath, elem, listed) {
         this.watcher.close();
     var start = (new Date()).getTime();
     this.watcher = surveil (dirpath);
-    this.watcher.on ('add', function (filepath) {
+    this.watcher.on ('add', function (filename) {
         for (var i=0,j=KNOWN_EXT.length; i<j; i++) {
             var ext = KNOWN_EXT[i];
-            if (fname.slice (-1*ext.length) === ext) {
-                var prawn = new Pron (dirpath, filepath);
-                self.pronMap[filepath] = prawn;
+            if (filename.slice (-1*ext.length) === ext) {
+                var prawn = new Pron (self.warrior, dirpath, filename);
+                self.pronMap[filename] = prawn;
                 var container = self.createContainer (prawn);
                 prawn.on ('thumb', function (thumbPath, padHeight, stats) {
                     if (self.selectedPath != dirpath)
                         return;
-
                     self.sortThumb (container, thumbPath, padHeight, stats);
                     self.revealThumb();
+                });
+                prawn.on ('error', function (err) {
+                    container.dispose();
                 });
                 return;
             }
@@ -357,24 +373,11 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 break;
             }
 
-        self.warrior.redoThumb (
-            self.selectedPath,
-            filepath,
-            oldThumbPath,
-            function (err, thumbPath, padHeight, stats) {
-                if (err) {
-                    console.log ('failed to redraw thumbnail for', filepath, err);
-                    return;
-                }
-                container.firstChild.dispose();
-                self.setupThumb (container, thumbPath, padHeight, stats);
-                self.sortThumb (container);
-            }
-        );
+        self.pronMap[filepath].updateThumbnail (oldThumbPath);
     });
     this.watcher.on ('remove', function (filepath) {
         // linear scan for filepath and dispose the first matching container
-        self.warrior.removeThumb (self.selectedPath, filepath);
+        Pron.removeThumb (self.selectedPath, filepath);
         for (var i=0,j=self.thumbsElem.children.length; i<j; i++)
             if (self.thumbsElem.children[i].getAttribute ('data-name') == filepath) {
                 self.thumbsElem.children[i].dispose();
@@ -424,9 +427,11 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                     prawn.on ('thumb', function (thumbPath, padHeight, stats) {
                         if (self.selectedPath != dirpath)
                             return;
-
                         self.sortThumb (container, thumbPath, padHeight, stats);
                         self.revealThumb();
+                    });
+                    prawn.on ('error', function (err) {
+                        container.dispose();
                     });
                     return;
                 }
@@ -442,8 +447,11 @@ Controller.prototype.select = function (dirpath, elem, listed) {
 
 Controller.prototype.sortThumb = function (container, thumbPath, padHeight, stats) {
     if (thumbPath) {
-        if (container.lastChild.nodeName == 'IMG')
-            container.lastChild.dispose();
+        if (
+            container.lastChild.previousSibling
+         && container.lastChild.previousSibling.nodeName == 'IMG'
+        )
+            container.lastChild.previousSibling.dispose();
         container.dropClass ('loading');
         var newThumb = this.document.createElement ('img');
             newThumb.setAttribute ('src', thumbPath + '?' + (new Date()).getTime());

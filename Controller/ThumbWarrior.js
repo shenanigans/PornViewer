@@ -24,31 +24,37 @@ var CWD = process.cwd();
 var THUMBS_DIR = path.join (gui.App.dataPath, 'thumbs');
 var IMAGE_EXT = [ '.jpg', '.jpeg', '.png', '.gif' ];
 var VID_THUMB = 'file://' + path.join (__dirname, 'video_thumb.png');
-var VID_THUMB_TIMEOUT = 2000;
+var VID_THUMB_TIMEOUT = 10000;
 mkdirp.sync (THUMBS_DIR);
 
 function FingerTrap (width) {
     this.width = width || 1;
     this.taken = 0;
+    this.queue = [];
+    this.isPaused = false;
 };
 FingerTrap.prototype.take = function (callback) {
-    if (this.taken < this.width) {
+    if (!this.isPaused && this.taken < this.width) {
         this.taken++;
         process.nextTick (callback);
         return;
     }
-    if (this.queue)
-        this.queue.push (callback);
-    else
-        this.queue = [ callback ];
+    this.queue.push (callback);
 };
 FingerTrap.prototype.free = function(){
-    if (!this.queue)
+    if (!this.queue.length || this.isPaused)
         this.taken--;
-    else {
+    else
         process.nextTick (this.queue.shift());
-        if (!this.queue.length)
-            delete this.queue;
+};
+FingerTrap.prototype.pause = function(){
+    this.isPaused = true;
+};
+FingerTrap.prototype.play = function(){
+    this.isPaused = false;
+    while (this.queue.length && this.taken < this.width) {
+        this.taken++;
+        process.nextTick (this.queue.shift());
     }
 };
 
@@ -193,7 +199,7 @@ ThumbWarrior.prototype.processThumb = function (filepath, thumbpath, callback) {
         ], function (err) {
             IMG_THUMB_LOCK.free();
             if (err)
-                return callback (err);
+                return callback (err, undefined, stats);
 
             // write the thumbnail data to disc
             finalImage.writeFile (thumbpath, 'png', function (err) {
