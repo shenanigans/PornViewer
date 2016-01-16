@@ -6,9 +6,20 @@ var needle = require ('needle');
 var gui = require ('nw.gui');
 var Visualizer = require ('./Visualizer');
 var Controller = require ('./Controller');
+var Pron = require ('Pron');
 var scum = require ('scum');
 
-var SHOW_EXT = { '.jpg':'jpg', '.jpeg':'jpg', '.gif':'gif', '.png':'png' };
+var SHOW_EXT = {
+    '.jpg':     true,
+    '.jpeg':    true,
+    '.gif':     true,
+    '.png':     true,
+    '.avi':     true,
+    '.mkv':     true,
+    '.m4a':     true,
+    '.mp4':     true,
+    '.rm':      true
+};
 var CONTROLLER_BASE_WIDTH = 295;
 var CONTROLLER_MIN_WIDTH = CONTROLLER_BASE_WIDTH + 150;
 var CONTROLS_TIMEOUT = 1500;
@@ -72,7 +83,7 @@ var screens = gui.Screen.Init().screens;
 if (winState) {
     winState = JSON.parse (winState);
     // make sure this state is still displayable
-    // ...or not. Probably the OS is on top of this one.
+
     // delete winState;
 }
 if (!winState) {
@@ -148,7 +159,7 @@ var Window = gui.Window.get();
 var beggarArmed = false;
 var alreadyRan = false;
 Window.on ('loaded', function(){
-    if (alreadyRan) // for some reason this keeps happening lately
+    if (alreadyRan)
         return;
     alreadyRan = true;
 
@@ -161,7 +172,7 @@ Window.on ('loaded', function(){
     // show beggar window immediately
     // Window.show();
 
-    // when working on the beggar window, this stuff about the nag counter needs to be commended out
+    // comment out all this stuff when working on the beggar
     var nextNag = window.localStorage.nag;
     if (nextNag == 'NEVER')
         return;
@@ -177,6 +188,7 @@ Window.on ('loaded', function(){
     window.localStorage.nag = 10;
     beggarArmed = true;
 
+    // setup the beggar for display later
     var payAmount = dorkument.getElementById ('PayAmount');
     payAmount.on ('keypress', function (event) {
         var current = payAmount.value;
@@ -188,8 +200,10 @@ Window.on ('loaded', function(){
     });
 
     var payFrame = dorkument.getElementById ('PayFrame');
+    var throbber = dorkument.getElementById ('NetworkThrobber');
     payFrame.contentWindow.setup (
         function (token) {
+            throbber.addClass ('active');
             needle.post (
                 'http://kaztl.com/payment',
                 {
@@ -199,6 +213,7 @@ Window.on ('loaded', function(){
                 },
                 { json:true, parse:'json' },
                 function (err, response) {
+                    throbber.dropClass ('active');
                     if (err) {
                         window.alert (
                             '\
@@ -261,10 +276,14 @@ no matter how big or small. And remember, it\'s all for a good cause: more porn!
     var lookupPaymentEmail = dorkument.getElementById ('AlreadyPaidEmail');
     var lookupPaymentButton = dorkument.getElementById ('AlreadyPaidButton');
     lookupPaymentButton.on ('click', function(){
+        lookupPaymentEmail.setAttribute ('disabled', true);
+        throbber.addClass ('active');
         needle.get (
             'http://kaztl.com/payment?email=' + encodeURIComponent (lookupPaymentEmail.value),
             { parse:'json' },
             function (err, response) {
+                lookupPaymentEmail.setAttribute ('disabled', false);
+                throbber.dropClass ('active');
                 if (err) {
                     window.alert (
                         '\
@@ -327,24 +346,26 @@ function shutdown(){
         },
     });
 
-    window.localStorage.prefs_dev_con = JSON.stringify (controller.prefs);
-    window.localStorage.prefs_dev_viz = JSON.stringify (visualizer.prefs);
+    if (controller)
+        window.localStorage.prefs_dev_con = JSON.stringify (controller.prefs);
+    if (visualizer)
+        window.localStorage.prefs_dev_viz = JSON.stringify (visualizer.prefs);
     visualizer.savePron (function (err) {
         controllerWindow.close (true);
         visualizerWindow.close (true);
-        // if (beggarArmed) {
-        //     beggarArmed = false;
-        //     Window.show();
-        //     return;
-        // }
+        if (beggarArmed) {
+            beggarArmed = false;
+            Window.show();
+            return;
+        }
         setTimeout (function(){
             gui.App.quit();
-        }, 1000);
+        }, 50);
     });
 }
 
 // load opened file or last path
-var openPath, openDir, ext;
+var openPath, openDir, openFilename, ext;
 if (gui.App.argv.length) {
     openPath = gui.App.argv[0];
     // exists? directory?
@@ -355,6 +376,7 @@ if (gui.App.argv.length) {
         else {
             var pathinfo = path.parse (openPath);
             openDir = pathinfo.dir;
+            openFilename = pathinfo.base;
             if (Object.hasOwnProperty.call (SHOW_EXT, pathinfo.ext))
                 ext = pathinfo.ext.slice (1);
             else {
@@ -461,9 +483,14 @@ async.parallel ([
             );
             if (winState.visualizer.maximize)
                 visualizerWindow.maximize();
+            var vizPrefs = window.localStorage.prefs_dev_viz;
+            if (vizPrefs)
+                vizPrefs = JSON.parse (vizPrefs)
+            else
+                vizPrefs = {};
             visualizer = new Visualizer (
                 visualizerWindow,
-                JSON.parse (window.localStorage.prefs_dev_viz)
+                vizPrefs
             );
 
             // setup controls
@@ -507,8 +534,6 @@ async.parallel ([
 
             // keyboard navigation events
             visualizer.document.body.on ('keydown', handleKey);
-            if (openPath)
-                visualizer.display (openPath, ext);
 
             // visualizer ready
             callback();
@@ -522,10 +547,15 @@ async.parallel ([
     }
 
     // ready to start the controller now
+    var conPrefs = window.localStorage.prefs_dev_con;
+    if (conPrefs)
+        conPrefs = JSON.parse (conPrefs)
+    else
+        conPrefs = {};
     controller = new Controller (
         controllerWindow,
         visualizer,
-        JSON.parse (window.localStorage.prefs_dev_con)
+        conPrefs
     );
     controller.document.body.on ('keydown', handleKey);
     controller.on ('display', function (prawn) {
@@ -535,25 +565,34 @@ async.parallel ([
         visualizer.preload (prawn);
     });
 
+    // if launched as an Open command, open the requested file immediately
+    if (openPath) {
+        controller.selectedImagePath = openPath;
+        var prawn = new Pron (controller.warrior, openDir, openFilename);
+        visualizer.display (prawn);
+        visualizerWindow.focus();
+    }
+
     // reveal current path
     controller.currentPath = openDir;
     controller.openCurrent (function (err) {
         if (err)
             return;
         if (openPath)
-            controller.showImage (undefined, openPath, ext);
+            controller.showImage (undefined, openPath);
     });
 
     // wait for future file open operations
     function openFile (cmdline) {
         // exists? directory?
-        var filename;
+        var filename, oldPath = controller.currentPath;
         try {
             var openPath;
             if (process.platform == 'win32')
                 openPath = /"([^"]+)"$/.exec (cmdline)[1];
             else
                 openPath = cmdline.split (/ /g)[1];
+
             var stats = fs.statSync (openPath);
             if (stats.isDirectory())
                 controller.currentPath = openPath;
@@ -564,12 +603,17 @@ async.parallel ([
                 if (Object.hasOwnProperty.call (SHOW_EXT, ext)) {
                     controller.manualScrolling = false;
                     controller.selectedImagePath = openPath;
-                    visualizer.display (openPath, ext.slice (1));
+                    var prawn = new Pron (controller.warrior, pathinfo.dir, pathinfo.base);
+                    visualizer.display (prawn);
                     visualizerWindow.focus();
                 }
             }
         } catch (err) { return false; }
 
+        if (controller.currentPath === oldPath) {
+            controller.showImage (undefined, openPath);
+            return;
+        }
         controller.openCurrent(function (err) {
             if (err)
                 return;
@@ -589,7 +633,7 @@ async.parallel ([
         var files = event.dataTransfer.files;
         if (!files.length)
             return false;
-        openFile ('PornViewer '+JSON.stringify (files[files.length-1].path));
+        openFile ('PornViewer "'+files[files.length-1].path+'"');
         return false;
     });
 
@@ -602,7 +646,7 @@ async.parallel ([
         var files = event.dataTransfer.files;
         if (!files.length)
             return false;
-        openFile ('PornViewer '+JSON.stringify (files[files.length-1].path));
+        openFile ('PornViewer "'+files[files.length-1].path+'"');
         return false;
     });
 });

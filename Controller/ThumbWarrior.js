@@ -70,44 +70,14 @@ function ThumbWarrior (document) {
     var alreadyDone = false;
 
     var videoThumbOverlay = this.videoThumbOverlay = document.createElement ('img');
-    videoThumbOverlay.onload = function (event) {
-        if (!--waitingForOverlays && waitingCallback)
-            waitingCallback();
-    };
-    videoThumbOverlay.onerror = function (event) {
-        if (alreadyDone)
-            return;
-        alreadyDone = true;
-        callback (new Error ('failed to load full-width video overlay image'));
-    };
     videoThumbOverlay.setAttribute ('style', 'position:fixed;left:-1000px;width:150px;height:150px;');
     videoThumbOverlay.setAttribute ('src', 'video_overlay.png');
     document.body.appendChild (videoThumbOverlay);
 
     var videoLeftGutter = this.videoLeftGutter = document.createElement ('img');
-    videoLeftGutter.onload = function (event) {
-        if (!--waitingForOverlays && waitingCallback)
-            waitingCallback();
-    };
-    videoLeftGutter.onerror = function (event) {
-        if (alreadyDone)
-            return;
-        alreadyDone = true;
-        callback (new Error ('failed to load left video overlay image'));
-    };
     videoLeftGutter.setAttribute ('src', 'video_left_overlay.png');
 
     var videoRightGutter = this.videoRightGutter = document.createElement ('img');
-    videoRightGutter.onload = function (event) {
-        if (!--waitingForOverlays && waitingCallback)
-            waitingCallback();
-    };
-    videoRightGutter.onerror = function (event) {
-        if (alreadyDone)
-            return;
-        alreadyDone = true;
-        callback (new Error ('failed to load right video overlay image'));
-    };
     videoRightGutter.setAttribute ('src', 'video_right_overlay.png');
 
     this.workingCanvas = document.createElement ('canvas');

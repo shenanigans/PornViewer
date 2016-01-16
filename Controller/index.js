@@ -466,6 +466,10 @@ Controller.prototype.sortThumb = function (container, thumbPath, padHeight, stat
         container.setAttribute ('data-modified', stats.modified);
     }
 
+    if (!this.thumbsElem.children.length) {
+        this.thumbsElem.appendChild (container);
+        return;
+    }
     if (this.thumbsElem.children.length == 1 && container.parentNode)
         return;
     var attr = 'data-'+this.sortBy;
@@ -582,6 +586,11 @@ Controller.prototype.revealThumb = function(){
 };
 
 Controller.prototype.showImage = function (thumbElem, prawn) {
+    if (typeof prawn == 'string')
+        if (Object.hasOwnProperty.call (this.pronMap, prawn))
+            prawn = this.pronMap[prawn];
+        else
+            return;
     if (this.selectedImage)
         this.selectedImage.dropClass ('selected');
     // var thumbIndex;

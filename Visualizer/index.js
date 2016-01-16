@@ -1,5 +1,6 @@
 
 var path = require ('path');
+// var VideoManager = require ('./VideoManager');
 var chimera = require ('wcjs-renderer');
 
 /**     @module/class PornViewer:Visualizer
@@ -256,20 +257,21 @@ function Visualizer (winnder, prefs) {
             'style',
             'left:' + (Math.floor (position * VolumeBar.offsetWidth) - VolumeBar.offsetWidth) + 'px;'
         );
+        stashedVolume = this.prefs.volume;
     }
     MuteIndicator.on ('click', function (event) {
         if (!self.vlc)
             return false;
         if (self.vlc.audio.volume) {
             stashedVolume = self.vlc.audio.volume;
-            self.vlc.audio.volume = 0;
+            self.prefs.volume = self.vlc.audio.volume = 0;
             this.setAttribute ('src', 'muted.png');
             VolumeCaret.setAttribute (
                 'style',
                 'left:' + (-1 * VolumeBar.offsetWidth) + 'px;'
             );
         } else {
-            self.vlc.audio.volume = stashedVolume;
+            self.prefs.volume = self.vlc.audio.volume = stashedVolume;
             this.setAttribute ('src', 'mute.png');
             VolumeCaret.setAttribute (
                 'style',
@@ -789,10 +791,8 @@ Visualizer.prototype.display = function (prawn) {
     // image handling is simple
     if (prawn.isImage) {
         this.loadImage (prawn.fullpath, function (err, image) {
-            if (err) {
-                console.log ('loadImage error', err);
+            if (err)
                 return;
-            }
             if (self.activePron !== prawn) // not interested in this Pron anymore
                 return;
             self.setupContextMenu();
@@ -1392,7 +1392,7 @@ Visualizer.prototype.loadImage = function (filepath, callback) {
             queue[i] (undefined, imageObj);
     };
     imageObj.onerror = function (err) {
-        console.log ('error!!!', err);
+        console.log ('loadImage error', err);
         var queue = self.loadingImages[filepath];
         delete self.loadingImages[filepath];
         for (var i=0,j=queue.length; i<j; i++)

@@ -17,6 +17,12 @@
     <Property Id="DropAppdata" Value="$(env.LocalAppData)\PornViewer" />
     <UIRef Id="WixUI_FeatureTree" />
     <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
+    <WixVariable Id="WixUIExclamationIco" Value="small.bmp" />
+    <WixVariable Id="WixUIInfoIco" Value="small.bmp" />
+    <WixVariable Id="WixUINewIco" Value="tiny.bmp" />
+    <WixVariable Id="WixUIUpIco" Value="tiny.bmp" />
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="$(var.PlatformProgramFilesFolder)">
@@ -40,6 +46,10 @@
             <File Id="Application5" Source="minimize.png" />
             <File Id="Application6" Source="restore.png" />
             <File Id="Application7" Source="package.json" />
+            <File Id="Application8" Source="support.css" />
+            <File Id="Application9" Source="paypage.html" />
+            <File Id="Application10" Source="vidErrThumb.png" />
+            <File Id="Application11" Source="imgErrThumb.png" />
           </Component>
           <Directory Name="Controller" Id="ControllerDirectory">
             <Component Id="ControllerFiles" Guid="a981e01a-4467-46f7-bd1a-08e42e2f8ab1">
@@ -56,7 +66,9 @@
               <File Id="Application_Controller9" Source="Controller\scum.js" />
               <File Id="Application_Controller10" Source="Controller\ThumbWarrior.js" />
               <File Id="Application_Controller11" Source="Controller\video_overlay.png" />
-              <File Id="Application_Controller12" Source="Controller\video.png" />
+              <File Id="Application_Controller12" Source="Controller\video_left_overlay.png" />
+              <File Id="Application_Controller13" Source="Controller\video_right_overlay.png" />
+              <File Id="Application_Controller14" Source="Controller\video.png" />
             </Component>
           </Directory>
           <Directory Name="Visualizer" Id="VisualizerDirectory">

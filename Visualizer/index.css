@@ -298,8 +298,10 @@ html {
     left: 460px;
     font-size: 16px;
     background-color: #fff;
-    font-weight: 900;
+    font-weight: 700;
     font-family: verdana;
+    color: #222;
+    box-shadow: 0 0 28px rgba(255, 255, 255, 0.21);
 }
 
 #ContextMenu.active {
@@ -355,7 +357,7 @@ html {
 }
 
 .CX_Section.empty {
-    color: #BEBEBE;
+    color: #C7C7C7;
 }
 
 .CX_Children {
@@ -390,12 +392,16 @@ html {
     font-weight: 900;
 }
 
+#CX_Options_Video.active .CX_Shortcut {
+    color: #D000C8;
+}
+
 #CX_Options_Video .CX_Shortcut {
     color: #FF7EFA;
 }
 
-#CX_Options_Video.active .CX_Shortcut {
-    color: #D000C8;
+.CX_Section.empty .CX_Shortcut {
+    color: #FF7EFA !important;
 }
 
 .mono {
@@ -411,6 +417,10 @@ html {
     border-style: solid;
     border-width: 0.7em 0 0.7em 15px;
     border-color: transparent transparent transparent #C5C5C5;
+}
+
+.empty .openable {
+    display: none;
 }
 
 .CX_Section.open > .openable {
