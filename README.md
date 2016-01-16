@@ -40,13 +40,8 @@ will **not** briefly show the last-viewed image as I consider this feature a pri
 ## Installation
 Use one of these installer links below. If you like it, please [help me not be so broke](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=PN6C2AZTS2FP8&lc=US&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted).
 
-### Windows Installers
-#### 64 bits
- * [0.1.0](https://github.com/shenanigans/PornViewer/releases/download/0.1.0/PornViewer_x64.msi)
-
-#### 32 bits
-The startup time is slightly slower than the x64 version, but I'm working on it.
- * [0.1.0](https://github.com/shenanigans/PornViewer/releases/download/0.1.0/PornViewer_x86.msi)
+### Windows Installer
+ * [0.2.0](https://github.com/shenanigans/PornViewer/releases/download/0.2.0/PornViewer_x86.msi)
 
 ### Linux Binaries
 I've been having a problem with the `lwip` module, it's supposed to statically bind its own libpng
