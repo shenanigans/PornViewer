@@ -336,13 +336,17 @@ function shutdown(){
             x:              controllerWindow.x,
             y:              controllerWindow.y,
             width:          controllerWindow.width,
-            height:         controllerWindow.height
+            height:         controllerWindow.height,
+            maximize:       controllerWindow.window.document
+                             .getElementById ('Maximize').hasClass ('restore')
         },
         visualizer:     {
             x:              visualizerWindow.x,
             y:              visualizerWindow.y,
             width:          visualizerWindow.width,
-            height:         visualizerWindow.height
+            height:         visualizerWindow.height,
+            maximize:       visualizerWindow.window.document
+                             .getElementById ('Maximize').hasClass ('restore')
         },
     });
 
