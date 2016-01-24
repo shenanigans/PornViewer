@@ -7,20 +7,19 @@ theoretically cross-platform, it is currently only available on Windows.
 
 ## Why
 Win10 deprecated good ol' photo and fax viewer which for me beat everything else I tried. I built it
-in [node-webkit](https://github.com/nwjs/nw.js/) because I have an inappropriately close
-relationship with Node. I didn't build it in Electron **A** because I've done node-webkit once before
-and **B** because the Electron maintainers seem to like ES6 and I disagree. By the way I'll start
-calling node-webkit `nw.js` on the day that [http://nwjs.io/](http://nwjs.io/) becomes a useable
-page that doesn't end in "under construction".
+in [nw.js](http://nwjs.io/) because I have an inappropriately close relationship with Node. I didn't
+build it in Electron **A** because I've done nw.js once before and **B** because the Electron 
+maintainers seem to like ES6 and I disagree, packaging is a lil twisty, and some other kinda trivial 
+irks.
 
 Also:
  * clean design that doesn't waste your pixels or time
+ * versatile keyboard controls
  * uses libvlc to play a generous assortment of video formats
- * skip the part with somebody's dumb sweaty face hogging the screen
+ * picks video thumbnails from a more useful point in the video, which is surprisingly helpful
+ * skip the part in a video with somebody's dumb sweaty face hogging the screen
  * animated gifs play with a pretty high quality upscale, it's nice
- * really fast thumbnail caching and sorting
- * slightly clever name sorting picks up on numbers better
- * surprisingly small resource footprint, except for bulk thumbnail storage
+ * pretty fast thumbnail caching and sorting with a tight thumbnail view
 
 ## How
  * Use dem arrow keys.
