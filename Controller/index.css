@@ -335,6 +335,10 @@ body {
     background-color: #fff;
 }
 
+#SlideshowControls {
+    -webkit-app-region: no-drag;
+}
+
 .slideshowPlay {
     display: inline-block;
     width: 23px;

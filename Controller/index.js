@@ -63,6 +63,10 @@ function Controller (winnder, visualizer, prefs) {
     this.sortSelect.value = this.sortBy;
     this.sortSelect.on ('change', function(){
         self.prefs.sort = self.sortBy = self.sortSelect.value;
+        if (self.sortBy == 'random') {
+            self.thumbsElem.randomizeChildren();
+            return;
+        }
         // sort existing
         var potemkin = [];
         Array.prototype.push.apply (potemkin, self.thumbsElem.children);
@@ -327,6 +331,12 @@ Controller.prototype.createContainer = function (prawn) {
     return container;
 };
 
+function randomize (arr) {
+    var len = arr.length - 1;
+    for (var i=0, j=arr.length; i<j; i++)
+        arr.splice (Math.floor (Math.random() * len), 0, arr.shift());
+}
+
 var THUMBS_IN_FLIGHT = 12;
 var NUM_ATTRS = { created:true, modified:true, size:true };
 Controller.prototype.select = function (dirpath, elem, listed) {
@@ -358,6 +368,7 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 prawn.on ('error', function (err) {
                     container.dispose();
                 });
+                prawn.update();
                 return;
             }
         }
@@ -415,7 +426,10 @@ Controller.prototype.select = function (dirpath, elem, listed) {
                 listed (err);
             return;
         }
-        filenames.sort (FilenameSorter);
+        if (self.sortBy == 'random')
+            randomize (filenames)
+        else
+            filenames.sort (FilenameSorter);
         filenames.forEach (function (fname) {
             for (var i=0,j=KNOWN_EXT.length; i<j; i++) {
                 var ext = KNOWN_EXT[i];
@@ -441,24 +455,38 @@ Controller.prototype.select = function (dirpath, elem, listed) {
         if (listed)
             listed();
 
+        async.eachLimit (Object.keys (self.pronMap), 16, function (fname, callback) {
+            if (self.selectedPath != dirpath)
+                return callback ('done');
+            var prawn = self.pronMap[fname];
+            prawn.once ('thumb', function(){
+                if (self.selectedPath != dirpath)
+                    return callback ('done');
+                callback();
+            });
+            prawn.update();
+        });
+
         window.localStorage.lastPath = dirpath;
     });
 };
 
 Controller.prototype.sortThumb = function (container, thumbPath, padHeight, stats) {
-    if (thumbPath) {
+    var self = this;
+    // this little bit of delay seems to help chrome out
+    if (thumbPath) setTimeout (function(){
         if (
             container.lastChild.previousSibling
          && container.lastChild.previousSibling.nodeName == 'IMG'
         )
             container.lastChild.previousSibling.dispose();
         container.dropClass ('loading');
-        var newThumb = this.document.createElement ('img');
+        var newThumb = self.document.createElement ('img');
             newThumb.setAttribute ('src', thumbPath + '?' + (new Date()).getTime());
         if (padHeight)
             newThumb.setAttribute ('style', 'margin-top:'+padHeight+'px');
         container.insertBefore (newThumb, container.lastChild);
-    }
+    }, 5);
     if (stats) {
         container.setAttribute ('data-type', stats.type);
         container.setAttribute ('data-size', stats.size);
@@ -470,6 +498,8 @@ Controller.prototype.sortThumb = function (container, thumbPath, padHeight, stat
         this.thumbsElem.appendChild (container);
         return;
     }
+    if (this.sortBy == 'random')
+        return;
     if (this.thumbsElem.children.length == 1 && container.parentNode)
         return;
     var attr = 'data-'+this.sortBy;
@@ -647,7 +677,7 @@ Controller.prototype.lookUp = function(){
     var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
     var currentIndex = Array.prototype.indexOf.call (this.thumbsElem.children, this.selectedImage);
     if (rowWidth > this.thumbsElem.children.length)
-        return currentIndex;
+        return this.thumbsElem.children[currentIndex];
     if (currentIndex >= rowWidth)
         currentIndex -= rowWidth;
     else {
@@ -667,7 +697,7 @@ Controller.prototype.lookDown = function(){
     var rowWidth = Math.floor (this.thumbsElem.clientWidth / this.selectedImage.clientWidth);
     var currentIndex = Array.prototype.indexOf.call (this.thumbsElem.children, this.selectedImage);
     if (rowWidth > this.thumbsElem.children.length)
-        return currentIndex;
+        return this.thumbsElem.children[currentIndex];
     currentIndex += rowWidth;
     if (currentIndex >= this.thumbsElem.children.length)
         currentIndex = currentIndex % rowWidth;

@@ -7,3 +7,5 @@ nw.x86
 nw.x64
 resources
 build
+node_modules.wxs
+node_modules.wxs

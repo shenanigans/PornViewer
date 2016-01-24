@@ -9,12 +9,13 @@
     <?define PlatformVCRedistMMPath = "c:\Program Files (x86)\Common Files\Merge Modules\Microsoft_VC120_CRT_x64.msm" ?>
   <?endif ?>
 
-  <Product Id="4d5791d8-d5f5-46b7-bf16-2221771712f9" Name="PornViewer" Language="1033" Version="0.1.0" Manufacturer="Schmidty's Superior Solutions" UpgradeCode="8527e354-e187-4921-8af5-de92e1004b4a" >
+  <Product Id="*" Name="PornViewer" Language="1033" Version="0.2.1" Manufacturer="Schmidty's Superior Solutions" UpgradeCode="8527e354-e187-4921-8af5-de92e1004b4a" >
     <Package InstallerVersion="405" InstallScope="perMachine" Compressed="yes" Comments="Windows Installer Package" />
+    <MajorUpgrade Schedule="afterInstallInitialize" AllowDowngrades="no" DowngradeErrorMessage="A later version of PornViewer is already installed. Setup will now exit." />
     <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
     <Icon Id="ProductIcon" SourceFile="icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="ProductIcon"/>
-    <Property Id="DropAppdata" Value="$(env.LocalAppData)\PornViewer" />
+    <Property Id="DropAppdata" Value="$(env.LocalAppData)\PornViewer\databases" />
     <UIRef Id="WixUI_FeatureTree" />
     <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
     <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
@@ -118,7 +119,7 @@
       <Directory Id="ProgramMenuFolder">
         <Directory Id="ProgramMenuSubfolder" Name="PornViewer">
           <Component Id="ApplicationShortcuts" Guid="0093168f-dbc1-430e-b63f-570a01356f3c">
-            <Shortcut Id="ApplicationShortcut1" Name="PornViewer 0.0.1" Description="View Some Porn" Target="[INSTALLDIR]nw.exe" WorkingDirectory="INSTALLDIR" Icon="ProductIcon" />
+            <Shortcut Id="ApplicationShortcut1" Name="PornViewer" Description="View Some Porn" Target="[INSTALLDIR]nw.exe" WorkingDirectory="INSTALLDIR" Icon="ProductIcon" />
             <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\ShellNoRoam\MUICache" Name="[$(var.PlatformProgramFilesFolder)]PornViewer\nw.exe.FriendlyAppName" Value="PornViewer" Type="string" KeyPath="yes" />
             <RegistryValue Root="HKCU" Key="Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache" Name="[$(var.PlatformProgramFilesFolder)]PornViewer\nw.exe.FriendlyAppName" Value="PornViewer" Type="string"/>
             <RemoveFolder Id="ProgramMenuSubfolder" On="uninstall" />
@@ -131,8 +132,49 @@
             <RegistryValue Root="HKCU" Key="Software\Classes\Local Settings\Software\PornViewer" Name="LocalData" Value="yes" Type="string" KeyPath="yes" />
             <CreateFolder />
             <RemoveFolder Id="RemoveMyAppDirectory" On="uninstall" />
-            <util:RemoveFolderEx Id="ProgramMenuSubfolder" On="uninstall" Property="DropAppdata" />
+            <RemoveFile Id="removeFile_appdata" On="uninstall" Name="*" />
           </Component>
+          <Directory Id="AppDataDir_Cache" Name="Cache">
+            <Component Id="AppDataCacheDir" Guid="b582b805-79e6-4a97-94b6-048baba4787c">
+              <RegistryValue Root="HKCU" Key="Software\Classes\Local Settings\Software\PornViewer" Name="LocalData_Cache" Value="yes" Type="string" KeyPath="yes" />
+              <CreateFolder />
+              <RemoveFile Id="removeFile_Cache" On="uninstall" Name="*" />
+              <RemoveFolder Id="RemoveMyAppCacheDirectory" On="uninstall" />
+            </Component>
+          </Directory>
+          <Directory Id="AppDataDir_databases" Name="databases">
+            <Component Id="AppDataDBDir" Guid="e37e0151-4c5c-43bb-b45b-3d7bb52fda70">
+              <RegistryValue Root="HKCU" Key="Software\Classes\Local Settings\Software\PornViewer" Name="LocalData_databases" Value="yes" Type="string" KeyPath="yes" />
+            <CreateFolder />
+            <!-- <RemoveFile Id="removeFile_databases" On="uninstall" Name="*" /> -->
+              <util:RemoveFolderEx Id="ProgramMenuSubfolder" On="uninstall" Property="DropAppdata" />
+            <RemoveFolder Id="RemoveMyAppDBDirectory" On="uninstall" />
+          </Component>
+          </Directory>
+          <Directory Id="AppDataDir_GPUCache" Name="GPUCache">
+            <Component Id="AppDataGPUCacheDir" Guid="28ee72cd-ef7b-4b4b-b58c-aa190d16d6bf">
+              <RegistryValue Root="HKCU" Key="Software\Classes\Local Settings\Software\PornViewer" Name="LocalData_GPUCache" Value="yes" Type="string" KeyPath="yes" />
+              <CreateFolder />
+              <RemoveFile Id="removeFile_GPUCache" On="uninstall" Name="*" />
+              <RemoveFolder Id="RemoveMyAppGPUCacheDirectory" On="uninstall" />
+            </Component>
+          </Directory>
+          <Directory Id="AppDataDir_Local" Name="Local Storage">
+            <Component Id="AppDataStorageDir" Guid="21c142a2-4134-46bd-bee0-2a4d31703e58">
+              <RegistryValue Root="HKCU" Key="Software\Classes\Local Settings\Software\PornViewer" Name="LocalData_Local" Value="yes" Type="string" KeyPath="yes" />
+              <CreateFolder />
+              <RemoveFile Id="removeFile_Local" On="uninstall" Name="*" />
+              <RemoveFolder Id="RemoveMyAppLocalStorageDirectory" On="uninstall" />
+            </Component>
+          </Directory>
+          <Directory Id="AppDataDir_thumbs" Name="thumbs">
+            <Component Id="AppDataThumbsDir" Guid="acf88457-2203-495a-8c2b-d486bb085f6a">
+              <RegistryValue Root="HKCU" Key="Software\Classes\Local Settings\Software\PornViewer" Name="LocalData_thumbs" Value="yes" Type="string" KeyPath="yes" />
+              <CreateFolder />
+              <RemoveFile Id="removeFile_thumbs" On="uninstall" Name="*" />
+              <RemoveFolder Id="RemoveMyAppThumbsDirectory" On="uninstall" />
+            </Component>
+          </Directory>
         </Directory>
       </Directory>
     </Directory>
@@ -141,12 +183,17 @@
       <Merge Id="VCRedist" SourceFile="$(var.PlatformVCRedistMMPath)" DiskId="1" Language="0" />
     </DirectoryRef>
 
-    <Feature Id="Complete" Title="PornViewer 0.0.1" Description="The complete package." Display="expand" Level="1" ConfigurableDirectory="INSTALLDIR">
+    <Feature Id="Complete" Title="PornViewer" Description="The complete package." Display="expand" Level="1" ConfigurableDirectory="INSTALLDIR">
       <ComponentRef Id="ApplicationFiles" />
       <ComponentRef Id="AppDataDirectory" />
       <ComponentRef Id="ControllerFiles" />
       <ComponentRef Id="VisualizerFiles" />
       <ComponentGroupRef Id="NodeModules"/>
+      <ComponentRef Id="AppDataCacheDir" />
+      <ComponentRef Id="AppDataDBDir" />
+      <ComponentRef Id="AppDataGPUCacheDir" />
+      <ComponentRef Id="AppDataStorageDir" />
+      <ComponentRef Id="AppDataThumbsDir" />
       <Feature Id="VCRedistFeature" Title="Visual C++ 12.0 Runtime" AllowAdvertise="no" Display="hidden" Level="1">
         <MergeRef Id="VCRedist" />
       </Feature>

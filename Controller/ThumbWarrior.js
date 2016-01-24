@@ -59,7 +59,7 @@ FingerTrap.prototype.play = function(){
 };
 
 // these are global, not per-warrior
-var IMG_THUMB_LOCK = new FingerTrap (16);
+var IMG_THUMB_LOCK = new FingerTrap (8);
 var VID_THUMB_LOCK = new FingerTrap (1);
 
 function ThumbWarrior (document) {
