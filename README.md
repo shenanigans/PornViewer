@@ -63,15 +63,6 @@ No. You're welcome to fork this repo and make one. If you want my opinion I thin
  * fake directories called collections
  * browse from multiple directories or collections at once
  * "cascade view" will tile images (including gifs) to fill the entire monitor with scrolling porn
- * "random" sort mode, what is even wrong with me that I've forgotten this feature for so long
-
-
-## Known Issues
- * Several things in need of throbbers or success/failure indicators
- * Lots of things drag selectable that shouldn't be
- * busy/slow hard drives tend to cause the first video thumbnail to timeout
- * the lil speaker icon, and especially its brother the mute icon, have fucked up opacity
- * first attempt to drag an image (per session) always fails
 
 
 ## Building PornViewer
