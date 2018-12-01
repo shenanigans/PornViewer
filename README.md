@@ -13,6 +13,7 @@ maintainers seem to like ES6 and I disagree, packaging is a lil twisty, and some
 irks.
 
 <img align="right" src="http://i.imgur.com/47esyCO.png" />
+
  * clean design that doesn't waste your pixels or time
  * versatile keyboard controls
  * uses libvlc to play a generous assortment of video formats
